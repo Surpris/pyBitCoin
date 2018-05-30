@@ -72,16 +72,38 @@ Blockchainがインスタンス化されるとき、ジェネシスブロック�
 
 ## Implement the proof-of-work method
 
+
+# Step 4: Consensus
+ブロックチェーンは非中央集権的でなくてはならない。   
+ブロックチェーンを利用するすべての人が同じチェーンを反映しているということをどう確認するか、
+それがブロックチェーンにおけるコンセンサスの問題である。   
+
+## Register a new node
+コンセンサスアルゴリズムを実装する前に、ネットワーク上にある他のノードを知る方法を作る。   
+それぞれのノードがネットワーク上の他のノードのリストを持っていなければならない。   
+なのでいくつかのエンドポイントが追加で必要となる。   
+
+* URLの形での新しいノードのリストを受け取るための/nodes/register
+* あらゆるコンフリクトを解消することで、ノードが正しいチェーンを持っていることを確認するための/nodes/resolve
+
+## Implement consensus algorithm
+以前言及したとおり、コンフリクトはあるノードが他のノードと異なったチェーンを持っているときに発生する。   
+これを解決するために、最も長いチェーンが信頼できるというルールを作る。   
+別の言葉で言うと、ネットワーク上で最も長いチェーンは事実上正しいものといえる。   
+このアルゴリズムを使って、ネットワーク上のノード間でコンセンサスに到達する。
 """
 
 import time
 import json
 import hashlib
+from urllib.parse import urlparse
+import requests
 
 class Blockchain(object):
     def __init__(self):
         self.chain = []
         self.current_transactions = []
+        self.nodes = set() # 同じノードを追加しても一度しか出現しないことを保証
 
         # ジェネシスブロックを作る
         self.new_block(proof=100, previous_hash=1)
@@ -177,6 +199,80 @@ class Blockchain(object):
         guess_hash = hashlib.sha256(guess).hexdigest()
 
         return guess_hash[:4] == "0000"
+
+    def register_node(self, address):
+        """register_node(address) -> None
+        ノードリストに新しいノードを加える
+        :param address: <str> ノードのアドレス 例: 'http://192.168.0.5:5000'
+        :return: None
+        """
+
+        parsed_url = urlparse(address)
+        self.nodes.add(parsed_url.netloc)
+    
+    def valid_chain(self, chain):
+        """valid_chain(data) -> bool
+        ブロックチェーンが正しいかを確認する
+
+        :param chain: <list> ブロックチェーン
+        :return: <bool> True であれば正しく、 False であればそうではない
+        """
+
+        last_block = chain[0]
+        current_index = 1
+
+        while current_index < len(chain):
+            block = chain[current_index]
+            print('{}'.format(last_block))
+            print('{}'.format(block))
+            print("\n--------------\n")
+
+            # ブロックのハッシュが正しいかを確認
+            if block['previous_hash'] != self.hash(last_block):
+                return False
+
+            # プルーフ・オブ・ワークが正しいかを確認
+            if not self.valid_proof(last_block['proof'], block['proof']):
+                return False
+
+            last_block = block
+            current_index += 1
+
+        return True
+
+    def resolve_conflicts(self):
+        """resolve_conflict() -> bool
+        これがコンセンサスアルゴリズムだ。
+        ネットワーク上の最も長いチェーンで自らのチェーンを
+        置き換えることでコンフリクトを解消する。
+        :return: <bool> 自らのチェーンが置き換えられると True 、そうでなれけば False
+        """
+
+        neighbours = self.nodes
+        new_chain = None
+
+        # 自らのチェーンより長いチェーンを探す必要がある
+        max_length = len(self.chain)
+
+        # 他のすべてのノードのチェーンを確認
+        for node in neighbours:
+            response = requests.get('http://{}/chain'.format(node))
+
+            if response.status_code == 200:
+                length = response.json()['length']
+                chain = response.json()['chain']
+
+                # そのチェーンがより長いか、有効かを確認
+                if length > max_length and self.valid_chain(chain):
+                    max_length = length
+                    new_chain = chain
+
+        # もし自らのチェーンより長く、かつ有効なチェーンを見つけた場合それで置き換える
+        if new_chain:
+            self.chain = new_chain
+            return True
+
+        return False
 
 if __name__ == "__main__":
     blockchain = Blockchain()
