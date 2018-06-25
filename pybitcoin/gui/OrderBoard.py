@@ -7,10 +7,13 @@ import os
 import json
 import datetime
 from collections import OrderedDict
+import glob
+import pybitflyer
 
 from PyQt5.QtWidgets import QMainWindow, QGridLayout, QMenu, QWidget, QLabel, QLineEdit
 from PyQt5.QtWidgets import QCheckBox
 from PyQt5.QtGui import QIcon, QPalette, QColor, QPixmap
+from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QPushButton, QMessageBox, QGroupBox, QDialog, QVBoxLayout, QHBoxLayout
 from PyQt5.QtWidgets import QStyle
 from PyQt5.QtCore import pyqtSlot, QThread, QTimer, Qt, QMutex
@@ -35,7 +38,7 @@ class OrderBoard(QMainWindow):
         Initialize the inner parameters.
         """
         self._mutex = QMutex()
-        self._windows = []
+        # self._windows = []
         self.initData()
         self._font_size_button = 16 # [pixel]
         self._font_size_groupbox_title = 12 # [pixel]
@@ -53,17 +56,28 @@ class OrderBoard(QMainWindow):
         self._currentDir = os.path.dirname(__file__)
         self._closing_dialog = True
 
+        self._api_dir = ".prv"
+        # fldrname_for_key = getpass.getpass("folder for key:")
+        fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], self._api_dir, "*"))[0]
+
+        with open(fpath, "r", encoding="utf-8") as ff:
+            self._api_key = ff.readline()
+            self._api_secret = ff.readline()
+        
+        self._api = pybitflyer.API(api_key=self._api_key, api_secret=self._api_secret)
+
         # if os.path.exists(os.path.join(os.path.dirname(__file__), "config.json")):
         #     self.loadConfig()
         # if os.path.exists(filepath):
         #     self.loadConfigGetData(filepath)
     
     @footprint
+    @pyqtSlot()
     def initData(self):
         """ initData(self) -> None
         Initialize inner data.
         """
-        pass
+        self._executions = []
     
     @footprint
     def initMainWidget(self):
@@ -135,11 +149,15 @@ class OrderBoard(QMainWindow):
         self.btn_ask = self.__makePushButton(group_bidask, (self._init_window_width - 40)//2, 20, 
                                              "Ask", self._font_size_button, None, 
                                              color="green")
+        self.btn_ask.setCheckable(True)
+        self.btn_ask.clicked.connect(self.updateOnAsk)
         
         self.btn_bid = self.__makePushButton(group_bidask, (self._init_window_width - 40)//2, 20, 
                                              "Bid", self._font_size_button, None, 
                                              color="red")
-        
+        self.btn_bid.setCheckable(True)
+        self.btn_bid.clicked.connect(self.updateOnBid)
+
         # construct the layout
         grid_bidask.addWidget(self.btn_ask, 0, 0)
         grid_bidask.addWidget(self.btn_bid, 0, 1)
@@ -152,25 +170,25 @@ class OrderBoard(QMainWindow):
         # +0.01 BTCs button
         self.btn_1pct = self.__makePushButton(group_volume, 
                                                (self._init_window_width - 40)//4, 20, 
-                                               "+0.01", self._font_size_button, None, 
+                                               "+0.01", self._font_size_button, self.add1pct, 
                                                color=self._init_button_color)
 
         # +0.1 BTCs button
         self.btn_10pct = self.__makePushButton(group_volume, 
                                                (self._init_window_width - 40)//4, 20, 
-                                               "+0.1", self._font_size_button, None, 
+                                               "+0.1", self._font_size_button, self.add10pct, 
                                                color=self._init_button_color)
 
         # +1 BTCs button
         self.btn_100pct = self.__makePushButton(group_volume, 
                                                (self._init_window_width - 40)//4, 20, 
-                                               "+1", self._font_size_button, None, 
+                                               "+1", self._font_size_button, self.add100pct, 
                                                color=self._init_button_color)
 
         # clear button
         self.btn_clear = self.__makePushButton(group_volume, 
                                                (self._init_window_width - 40)//4, 20, 
-                                               "C", self._font_size_button, None, 
+                                               "C", self._font_size_button, self.clearVolume, 
                                                color=self._init_button_color)
 
         # construct the layout
@@ -192,6 +210,8 @@ class OrderBoard(QMainWindow):
         self.txt_btc.setFont(font)
         self.txt_btc.resize((self._init_window_width - 40)//2, 20)
         self.txt_btc.setStyleSheet("background-color:{};".format("white"))
+        self.txt_btc.setValidator(QDoubleValidator())
+        self.txt_btc.textChanged.connect(self.updateExpectedValues)
 
         label_btc_volume = self.__makeLabel(group_values, "BTC", self._font_size_label, 
                                             isBold=self._font_bold_label, alignment=Qt.AlignLeft)
@@ -211,6 +231,8 @@ class OrderBoard(QMainWindow):
         self.txt_btcjpy.setFont(font)
         self.txt_btcjpy.resize((self._init_window_width - 40)//2, 20)
         self.txt_btcjpy.setStyleSheet("background-color:{};".format("white"))
+        self.txt_btcjpy.setValidator(QIntValidator())
+        self.txt_btcjpy.textChanged.connect(self.updateExpectedValues)
 
         label_jpy_unit = self.__makeLabel(group_values, "yen", self._font_size_label, 
                                           isBold=self._font_bold_label, alignment=Qt.AlignLeft)
@@ -226,6 +248,8 @@ class OrderBoard(QMainWindow):
         self.txt_stop.setFont(font)
         self.txt_stop.resize((self._init_window_width - 40)//2, 20)
         self.txt_stop.setStyleSheet("background-color:{};".format("white"))
+        self.txt_stop.setValidator(QIntValidator())
+        self.txt_stop.textChanged.connect(self.updateExpectedStop)
 
         label_stop_unit = self.__makeLabel(group_values, "yen", self._font_size_label, 
                                            isBold=self._font_bold_label, alignment=Qt.AlignLeft)
@@ -241,6 +265,8 @@ class OrderBoard(QMainWindow):
         self.txt_goal.setFont(font)
         self.txt_goal.resize((self._init_window_width - 40)//2, 24)
         self.txt_goal.setStyleSheet("background-color:{};".format("white"))
+        self.txt_goal.setValidator(QIntValidator())
+        self.txt_goal.textChanged.connect(self.updateExpectedGoal)
 
         label_goal_unit = self.__makeLabel(group_values, "yen", self._font_size_label, 
                                            isBold=self._font_bold_label, alignment=Qt.AlignLeft)
@@ -299,7 +325,7 @@ class OrderBoard(QMainWindow):
         self.btn_order = self.__makePushButton(self, self._init_window_width - 40, 20, 
                                                "Order", self._font_size_button, None, 
                                                color=self._init_button_color)
-
+        self.btn_order.setEnabled(False)
 
         """ add all the widget """
         self.grid.addWidget(group_boardinfo, 0, 0)
@@ -373,7 +399,7 @@ class OrderBoard(QMainWindow):
             label.setPalette(pal)
         return label
     
-    def __makePushButton(self, parent, width, height, text, fontsize, method, color=None):
+    def __makePushButton(self, parent, width, height, text, fontsize, method=None, color=None):
         """__makeButton(self, parent, width, height, text, fontsize, method, color=None) -> QPushButton
 
         Parameters
@@ -401,9 +427,112 @@ class OrderBoard(QMainWindow):
         
         if color is not None:
             button.setStyleSheet("background-color:{};".format(color))
-        # button.clicked.connect(method)
+        if method is not None:
+            button.clicked.connect(method)
 
         return button
+    
+    @footprint
+    @pyqtSlot()
+    def updateOnAsk(self):
+        self.btn_bid.setChecked(False)
+        self.validateOrder()
+        self.updateExpectedStop()
+        self.updateExpectedGoal()
+    
+    @footprint
+    @pyqtSlot()
+    def updateOnBid(self):
+        self.btn_ask.setChecked(False)
+        self.validateOrder()
+        self.updateExpectedStop()
+        self.updateExpectedGoal()
+    
+    def validateOrder(self):
+        if not self.btn_ask.isChecked() and not self.btn_bid.isChecked():
+            self.btn_order.setEnabled(False)
+        else:
+            self.btn_order.setEnabled(True)
+    @footprint
+    @pyqtSlot()
+    def add1pct(self):
+        if self.txt_btc.text() == "":
+            self.txt_btc.setText("{0:.2f}".format(0.01))
+        else:
+            value = float(self.txt_btc.text())
+            self.txt_btc.setText("{0:.2f}".format(value + 0.01))
+    
+    @footprint
+    @pyqtSlot()
+    def add10pct(self):
+        if self.txt_btc.text() == "":
+            self.txt_btc.setText("{0:.2f}".format(0.1))
+        else:
+            value = float(self.txt_btc.text())
+            self.txt_btc.setText("{0:.2f}".format(value + 0.1))
+    
+    @footprint
+    @pyqtSlot()
+    def add100pct(self):
+        if self.txt_btc.text() == "":
+            self.txt_btc.setText("{0:.2f}".format(1))
+        else:
+            value = float(self.txt_btc.text())
+            self.txt_btc.setText("{0:.2f}".format(value + 1))
+    
+    @footprint
+    @pyqtSlot()
+    def clearVolume(self):
+        self.txt_btc.setText("0")
+    
+    @footprint
+    @pyqtSlot()
+    def updateExpectedValues(self):
+        self.updateExpectedCurrent()
+        self.updateExpectedGoal()
+        self.updateExpectedStop()
+    
+    @footprint
+    @pyqtSlot()
+    def updateExpectedCurrent(self):
+        if self.txt_btcjpy.text() == "":
+            self.txt_btcjpy.setText("0")
+        btc = float(self.txt_btc.text())
+        btcjpy = float(self.txt_btcjpy.text())
+        self.expected_current.setText(str(int(btc*btcjpy)))
+
+    @footprint
+    @pyqtSlot()
+    def updateExpectedStop(self):
+        btc = float(self.txt_btc.text())
+        btcjpy = float(self.txt_btcjpy.text())
+        if self.txt_stop.text() == "":
+            self.txt_stop.setText("0")
+            stop_value = 0
+        else:
+            stop_value = int(self.txt_stop.text())
+        
+        if self.btn_ask.isChecked():
+            self.expected_stop.setText(str(int(btc * (btcjpy - stop_value))))
+        else:
+            self.expected_stop.setText(str(int(btc * (btcjpy + stop_value))))
+    
+    @footprint
+    @pyqtSlot()
+    def updateExpectedGoal(self):
+        btc = float(self.txt_btc.text())
+        btcjpy = float(self.txt_btcjpy.text())
+        if self.txt_goal.text() == "":
+            self.txt_goal.setText("0")
+            goal_value = 0
+        else:
+            goal_value = int(self.txt_goal.text())
+
+        if self.btn_ask.isChecked():
+            self.expected_goal.setText(str(int(btc * (btcjpy + goal_value))))
+        else:
+            self.expected_goal.setText(str(int(btc * (btcjpy - goal_value))))
+    
 
 
 def main():
