@@ -15,5 +15,7 @@ if __PYBITCOIN__SETUP__:
 else:
     # from . import backtest
     from . import core
+    from . import gui
+    from . import blockchain
     # from . import SQLDBclass
     # from . import MLClass
