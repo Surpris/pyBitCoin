@@ -22,15 +22,17 @@ import numpy as np
 import pyqtgraph as pg
 
 from utils.decorator import footprint
+from Worker import GetTickerWorker
 
 class OrderBoard(QMainWindow):
+    """OrderBoard class
+    """
+    
     def __init__(self, filepath=""):
         super().__init__()
         self.initInnerParameters(filepath)
         self.initGui()
-        # self.initGetDataProcess()
-        # self.initUpdateImageProcess()
-        # self.initCheckWindowProcess()
+        self.initGetDataProcess()
     
     @footprint
     def initInnerParameters(self, filepath):
@@ -51,20 +53,27 @@ class OrderBoard(QMainWindow):
 
         self._get_data_interval = 1 # [sec]
         self._get_data_worker_sleep_interval = self._get_data_interval - 0.1 # [sec]
-        self._update_board_interval = 1 # [sec]
 
         self._currentDir = os.path.dirname(__file__)
         self._closing_dialog = True
 
+        self._product_code = "FX_BTC_JPY"
         self._api_dir = ".prv"
         # fldrname_for_key = getpass.getpass("folder for key:")
         fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], self._api_dir, "*"))[0]
 
         with open(fpath, "r", encoding="utf-8") as ff:
-            self._api_key = ff.readline()
-            self._api_secret = ff.readline()
+            try:
+                self._api_key = ff.readline().strip()
+                self._api_secret = ff.readline().strip()
+            except Exception as ex:
+                print(ex)
         
         self._api = pybitflyer.API(api_key=self._api_key, api_secret=self._api_secret)
+        try:
+            _ = self._api.ticker(product_code=self._product_code)
+        except Exception as ex:
+            print(ex)
 
         # if os.path.exists(os.path.join(os.path.dirname(__file__), "config.json")):
         #     self.loadConfig()
@@ -78,7 +87,8 @@ class OrderBoard(QMainWindow):
         Initialize inner data.
         """
         self._executions = []
-    
+
+######################## Construction of GUI ########################
     @footprint
     def initMainWidget(self):
         """ initMainWidget(self) -> None
@@ -116,10 +126,10 @@ class OrderBoard(QMainWindow):
                              isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="green")
 
         # Last execution
-        label_last_exec = self.__makeLabel(group_boardinfo, "Last Exec: ", self._font_size_label, 
+        label_ltp = self.__makeLabel(group_boardinfo, "Last Trade: ", self._font_size_label, 
                                      isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
-        self.label_last_exec_value = \
+        self.label_ltp_value = \
             self.__makeLabel(group_boardinfo, "-1", self._font_size_label, 
                              isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="#0B5345")
 
@@ -130,16 +140,30 @@ class OrderBoard(QMainWindow):
         self.label_best_bid_value = \
             self.__makeLabel(group_boardinfo, "-1 ", self._font_size_label, 
                              isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="red")
+        
+        # Start ticker button
+        # self.btn_start_ticker = \
+        #     self.__makePushButton(group_boardinfo, 
+        #                           (self._init_window_width - 40)//4, 60, 
+        #                           "Start", self._font_size_button, self.getTickerManually, 
+        #                           color=self._init_button_color)
+        self.btn_start_ticker = \
+            self.__makePushButton(group_boardinfo, 
+                                  (self._init_window_width - 40)//4, 60, 
+                                  "Start", self._font_size_button, self.runAutoGetTicker, 
+                                  color=self._init_button_color)
 
         # construct the layout
-        grid_boardinfo.addWidget(label_best_ask, 0, 0)
-        grid_boardinfo.addWidget(self.label_best_ask_value, 0, 1)
+        grid_boardinfo.addWidget(label_best_ask, 0, 0, 1, 1)
+        grid_boardinfo.addWidget(self.label_best_ask_value, 0, 1, 1, 1)
 
-        grid_boardinfo.addWidget(label_last_exec, 1, 0)
-        grid_boardinfo.addWidget(self.label_last_exec_value, 1, 1)
+        grid_boardinfo.addWidget(label_ltp, 1, 0, 1, 1)
+        grid_boardinfo.addWidget(self.label_ltp_value, 1, 1, 1, 1)
 
-        grid_boardinfo.addWidget(label_best_bid, 2, 0)
-        grid_boardinfo.addWidget(self.label_best_bid_value, 2, 1)
+        grid_boardinfo.addWidget(label_best_bid, 2, 0, 1, 1)
+        grid_boardinfo.addWidget(self.label_best_bid_value, 2, 1, 1, 1)
+
+        grid_boardinfo.addWidget(self.btn_start_ticker, 0, 2, 3, 1)
 
         """ Bid / Ask setting """
         group_bidask, grid_bidask = \
@@ -400,7 +424,7 @@ class OrderBoard(QMainWindow):
         return label
     
     def __makePushButton(self, parent, width, height, text, fontsize, method=None, color=None):
-        """__makeButton(self, parent, width, height, text, fontsize, method, color=None) -> QPushButton
+        """__makePushButton(self, parent, width, height, text, fontsize, method, color=None) -> QPushButton
 
         Parameters
         ----------
@@ -431,7 +455,39 @@ class OrderBoard(QMainWindow):
             button.clicked.connect(method)
 
         return button
-    
+
+######################## Widgets' functions ########################
+    @footprint
+    @pyqtSlot()
+    def runAutoGetTicker(self):
+        if not self._timer_getData.isActive():
+            # self.initData()
+            self._timer_getData.start()
+            self.btn_start_ticker.setText("Stop")
+        else:
+            self.btn_start_ticker.setEnabled(False)
+            self.stopTimer = True
+
+    @footprint
+    @pyqtSlot()
+    def getTickerMaually(self):
+        mag = 100
+        try:
+            result = self._api.ticker(product_code=self._product_code)
+            if "timestamp" not in result.keys():
+                print("Failure in getting ticker.")
+                return
+            self.label_best_ask_value.setText(str(result["best_ask"]))
+            self.label_ltp_value.setText(str(result["ltp"]))
+            self.label_best_bid_value.setText(str(result["best_bid"]))
+            if self.chk_btcjpy.isChecked():
+                ltp = int(result["ltp"])
+                ltp_to_set = (ltp // mag + 1) * mag
+                self.txt_btcjpy.setText(str(ltp_to_set))
+        except Exception as ex:
+            print(ex)
+            return
+
     @footprint
     @pyqtSlot()
     def updateOnAsk(self):
@@ -448,11 +504,14 @@ class OrderBoard(QMainWindow):
         self.updateExpectedStop()
         self.updateExpectedGoal()
     
+    @footprint
+    @pyqtSlot()
     def validateOrder(self):
         if not self.btn_ask.isChecked() and not self.btn_bid.isChecked():
             self.btn_order.setEnabled(False)
         else:
             self.btn_order.setEnabled(True)
+    
     @footprint
     @pyqtSlot()
     def add1pct(self):
@@ -533,6 +592,66 @@ class OrderBoard(QMainWindow):
         else:
             self.expected_goal.setText(str(int(btc * (btcjpy - goal_value))))
     
+######################## GetDataProess functions ########################
+    @footprint
+    def initGetDataProcess(self):
+        self._timer_getData = QTimer()
+        self._timer_getData.setInterval(int(self._get_data_interval*1000))
+        self.stopTimer = False
+        self._thread_getData = QThread()
+        self._worker_getData = GetTickerWorker(api=self._api, product_code=self._product_code)
+        self._worker_getData.sleepInterval = self._get_data_worker_sleep_interval
+        
+        # Start.
+        self._timer_getData.timeout.connect(self.startGettingDataThread)
+        self._thread_getData.started.connect(self._worker_getData.process)
+        self._worker_getData.do_something.connect(self.updateData)
+
+        # Finish.
+        self._worker_getData.finished.connect(self._thread_getData.quit)
+        self._thread_getData.finished.connect(self.checkIsTimerStopped)
+
+        # Move.
+        self._worker_getData.moveToThread(self._thread_getData)
+    
+    @footprint
+    @pyqtSlot()
+    def startGettingDataThread(self):
+        if not self._thread_getData.isRunning():
+            print("start thread by timer.")
+            self._thread_getData.start()
+        else:
+            print("Thread is running.")
+    
+    @footprint
+    @pyqtSlot(object)
+    def updateData(self, obj):
+        mag = 100
+        if obj is not None:
+            try:
+                if "timestamp" not in obj.keys():
+                    print("Failure in getting ticker.")
+                    return
+                self.label_best_ask_value.setText(str(obj["best_ask"]))
+                self.label_ltp_value.setText(str(obj["ltp"]))
+                self.label_best_bid_value.setText(str(obj["best_bid"]))
+                if self.chk_btcjpy.isChecked():
+                    ltp = int(obj["ltp"])
+                    ltp_to_set = (ltp // mag + 1) * mag
+                    self.txt_btcjpy.setText(str(ltp_to_set))
+            except Exception as ex:
+                print(ex)
+                return
+
+    @footprint
+    @pyqtSlot()
+    def checkIsTimerStopped(self):
+        if self.stopTimer:
+            self._timer_getData.stop()
+            print("timer stopped.")
+            self.stopTimer = False
+            self.btn_start_ticker.setEnabled(True)
+            self.btn_start_ticker.setText("Start")
 
 
 def main():
