@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import sys
-import inspect
+import datetime
 import time
 import os
-import json
-import datetime
-from collections import OrderedDict
+
+import pickle
 import glob
 import pybitflyer
 
@@ -18,11 +16,13 @@ from PyQt5.QtWidgets import QPushButton, QMessageBox, QGroupBox, QDialog, QVBoxL
 from PyQt5.QtWidgets import QStyle
 from PyQt5.QtCore import pyqtSlot, QThread, QTimer, Qt, QMutex
 from pyqtgraph.Qt import QtGui, QtCore
-import numpy as np
-import pyqtgraph as pg
+
+# import pyqtgraph as pg
 
 from utils.decorator import footprint
 from Worker import GetTickerWorker
+
+DEBUG = True
 
 class OrderBoard(QMainWindow):
     """OrderBoard class
@@ -71,7 +71,9 @@ class OrderBoard(QMainWindow):
         
         self._api = pybitflyer.API(api_key=self._api_key, api_secret=self._api_secret)
         try:
-            _ = self._api.ticker(product_code=self._product_code)
+            endpoint = "/v1/markets"
+            _ = self._api.request(endpoint)
+            print(_)
         except Exception as ex:
             print(ex)
 
@@ -347,7 +349,7 @@ class OrderBoard(QMainWindow):
 
         """ Order button """
         self.btn_order = self.__makePushButton(self, self._init_window_width - 40, 20, 
-                                               "Order", self._font_size_button, None, 
+                                               "Order", self._font_size_button, self.order, 
                                                color=self._init_button_color)
         self.btn_order.setEnabled(False)
 
@@ -592,6 +594,69 @@ class OrderBoard(QMainWindow):
         else:
             self.expected_goal.setText(str(int(btc * (btcjpy - goal_value))))
     
+    def order(self):
+        """order(self) -> response
+        """
+        # get size and prices
+        btcjpy = int(self.txt_btcjpy.text())
+        btc = float(self.txt_btc.text())
+        if self.btn_ask.isChecked():
+            stop = btcjpy - int(self.txt_stop.text())
+            goal = btcjpy + int(self.txt_goal.text())
+            side_ifd = "BUY"
+            side_oco = "SELL"
+        else:
+            stop = btcjpy + int(self.txt_stop.text())
+            goal = btcjpy - int(self.txt_goal.text())
+            side_ifd = "SELL"
+            side_oco = "BUY"
+        
+        # IFDOCO setting
+        ## IDF
+        params_ifd = {
+            "product_code":"BTC_JPY",
+            "condition_type":"LIMIT",
+            "side":side_ifd,
+            "price":btcjpy,
+            "size":btc
+        }
+
+        ## OCO1: stop
+        params_oco1 = {
+            "product_code":"BTC_JPY",
+            "condition_type":"STOP",
+            "side":side_oco,
+            "trigger_price":stop,
+            "size":btc
+        }
+
+        ## OCO2: goal
+        params_oco2 = {
+            "product_code":"BTC_JPY",
+            "condition_type":"STOP",
+            "side":side_oco,
+            "trigger_price":goal,
+            "size":btc
+        }
+
+        params = {
+            "order_method":"IFDOCO",
+            "minute_to_expire":10,
+            "parameters":[params_ifd, params_oco1, params_oco2],
+
+        }
+        try:
+            if DEBUG:
+                print(params)
+                result = ""
+            else:
+                pass
+                result = self._api.sendparentorder(**params)
+                print(result["parent_order_acceptance_id"])
+            self._executions.append(dict(param=params, result=result))
+        except Exception as ex:
+            print(ex)
+    
 ######################## GetDataProess functions ########################
     @footprint
     def initGetDataProcess(self):
@@ -653,6 +718,41 @@ class OrderBoard(QMainWindow):
             self.btn_start_ticker.setEnabled(True)
             self.btn_start_ticker.setText("Start")
 
+######################## Closing processes ########################
+    @footprint
+    def closeEvent(self, event):
+        if self._thread_getData.isRunning():
+            string = "Some threads are still running.\n"
+            string += "Please wait for their finishing."
+            confirmObject = QMessageBox.warning(self, "Closing is ignored.",
+                string, QMessageBox.Ok)
+            event.ignore()
+            return
+        if self._closing_dialog:
+            confirmObject = QMessageBox.question(self, "Closing...",
+                "Are you sure to quit?", QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No)
+            if confirmObject == QMessageBox.Yes:
+                self.stopAllTimers()
+                self.saveExecutions()
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            self.stopAllTimers()
+            self.saveExecutions()
+
+    @footprint
+    def stopAllTimers(self):
+        if self._timer_getData.isActive():
+            self._timer_getData.stop()
+    
+    @footprint
+    def saveExecutions(self):
+        datetimeFmt = "%Y%m%d%H%M%S"
+        now = datetime.datetime.now().strftime(datetimeFmt)
+        with open(os.path.join(os.path.dirname(__file__), "data", "{}.executions".format(now)), "wb") as ff:
+            pickle.dump(self._executions, ff)
 
 def main():
     app = QtGui.QApplication([])
