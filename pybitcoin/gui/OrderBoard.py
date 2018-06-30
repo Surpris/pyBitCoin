@@ -3,12 +3,12 @@
 import datetime
 import time
 import os
-
+import json
 import pickle
 import glob
 import pybitflyer
 
-from PyQt5.QtWidgets import QMainWindow, QGridLayout, QMenu, QWidget, QLabel, QLineEdit
+from PyQt5.QtWidgets import QMainWindow, QGridLayout, QMenu, QWidget, QLabel, QLineEdit, QTextEdit
 from PyQt5.QtWidgets import QCheckBox
 from PyQt5.QtGui import QIcon, QPalette, QColor, QPixmap
 from PyQt5.QtGui import QIntValidator, QDoubleValidator
@@ -22,7 +22,7 @@ from pyqtgraph.Qt import QtGui, QtCore
 from utils.decorator import footprint
 from Worker import GetTickerWorker
 
-DEBUG = True
+
 
 class OrderBoard(QMainWindow):
     """OrderBoard class
@@ -36,18 +36,20 @@ class OrderBoard(QMainWindow):
     
     @footprint
     def initInnerParameters(self, filepath):
-        """
+        """initInnerParameters(self, filepath) -> None
         Initialize the inner parameters.
         """
+
+        """ Parameters for the GUI """
         self._mutex = QMutex()
         # self._windows = []
         self.initData()
-        self._font_size_button = 16 # [pixel]
+        self._font_size_button = 13 # [pixel]
         self._font_size_groupbox_title = 12 # [pixel]
         self._font_size_label = 11 # [pixel]
         self._font_bold_label = True
-        self._init_window_width = 333 # [pixel]
-        self._init_window_height = 592 # [pixel]
+        self._init_window_width = 260 # [pixel]
+        self._init_window_height = 675 # [pixel]
         self._init_button_color = "#EBF5FB"
         self.main_bgcolor = "#FDF2E9"
 
@@ -56,11 +58,16 @@ class OrderBoard(QMainWindow):
 
         self._currentDir = os.path.dirname(__file__)
         self._closing_dialog = True
-
+        
+        """ Parameters for BTC trade """
+        # for API
         self._product_code = "FX_BTC_JPY"
         self._api_dir = ".prv"
         # fldrname_for_key = getpass.getpass("folder for key:")
-        fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], self._api_dir, "*"))[0]
+        if os.name == "nt":
+            fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], self._api_dir, "*"))[0]
+        else:
+            fpath = glob.glob(os.path.join(os.environ["HOME"], self._api_dir, "*"))[0]
 
         with open(fpath, "r", encoding="utf-8") as ff:
             try:
@@ -76,11 +83,17 @@ class OrderBoard(QMainWindow):
             print(_)
         except Exception as ex:
             print(ex)
+        
+        # for setting BTCJPY
+        self._magnitude = 20
 
         # if os.path.exists(os.path.join(os.path.dirname(__file__), "config.json")):
         #     self.loadConfig()
         # if os.path.exists(filepath):
         #     self.loadConfigGetData(filepath)
+
+        """ Parameters for emulation """
+        self.__DEBUG = True
     
     @footprint
     @pyqtSlot()
@@ -89,6 +102,8 @@ class OrderBoard(QMainWindow):
         Initialize inner data.
         """
         self._executions = []
+        self._contracts = []
+        self._execution_count = 0
 
 ######################## Construction of GUI ########################
     @footprint
@@ -99,17 +114,17 @@ class OrderBoard(QMainWindow):
         self.main_widget = QWidget(self)
         self.setStyleSheet("background-color:{};".format(self.main_bgcolor))
         self.grid = QGridLayout(self.main_widget)
-        self.grid.setSpacing(10)
+        self.grid.setSpacing(5)
         self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "python.png")))
     
     @footprint
     def initGui(self):
-        """
+        """initGui(self) -> None
         Initialize the GUI.
         """
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.initMainWidget()
-        # self.setMenuBar()
+        self.setMenuBar()
 
         self.setWindowTitle("Order Board")
         self.resize(self._init_window_width, self._init_window_height)
@@ -117,10 +132,10 @@ class OrderBoard(QMainWindow):
         """ Board information """
         group_boardinfo, grid_boardinfo = \
             self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 50, 
-                                       "Board Info.", self._font_size_groupbox_title, 10)
+                                       "Board Info.", self._font_size_groupbox_title, 5)
 
         # Best ask
-        label_best_ask = self.__makeLabel(group_boardinfo, "Best Ask: ", self._font_size_label, 
+        label_best_ask = self.__makeLabel(group_boardinfo, "Ask: ", self._font_size_label, 
                                      isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
         self.label_best_ask_value = \
@@ -128,7 +143,7 @@ class OrderBoard(QMainWindow):
                              isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="green")
 
         # Last execution
-        label_ltp = self.__makeLabel(group_boardinfo, "Last Trade: ", self._font_size_label, 
+        label_ltp = self.__makeLabel(group_boardinfo, "LTP: ", self._font_size_label, 
                                      isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
         self.label_ltp_value = \
@@ -136,7 +151,7 @@ class OrderBoard(QMainWindow):
                              isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="#0B5345")
 
         # Best bid
-        label_best_bid = self.__makeLabel(group_boardinfo, "Best Bid: ", self._font_size_label, 
+        label_best_bid = self.__makeLabel(group_boardinfo, "Bid: ", self._font_size_label, 
                                      isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
         self.label_best_bid_value = \
@@ -170,7 +185,7 @@ class OrderBoard(QMainWindow):
         """ Bid / Ask setting """
         group_bidask, grid_bidask = \
             self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 30, 
-                                       "Start from", self._font_size_groupbox_title, 10)
+                                       "Start from", self._font_size_groupbox_title, 5)
         
         self.btn_ask = self.__makePushButton(group_bidask, (self._init_window_width - 40)//2, 20, 
                                              "Ask", self._font_size_button, None, 
@@ -191,7 +206,7 @@ class OrderBoard(QMainWindow):
         """ Volume buttons """
         group_volume, grid_volume = \
             self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 30, 
-                                       "Volume (BTC)", self._font_size_groupbox_title, 10)
+                                       "Volume (BTC)", self._font_size_groupbox_title, 5)
 
         # +0.01 BTCs button
         self.btn_1pct = self.__makePushButton(group_volume, 
@@ -214,7 +229,7 @@ class OrderBoard(QMainWindow):
         # clear button
         self.btn_clear = self.__makePushButton(group_volume, 
                                                (self._init_window_width - 40)//4, 20, 
-                                               "C", self._font_size_button, self.clearVolume, 
+                                               "C", self._font_size_button, self.clearSize, 
                                                color=self._init_button_color)
 
         # construct the layout
@@ -226,20 +241,23 @@ class OrderBoard(QMainWindow):
         """ Value setting """
         group_values, grid_values = \
             self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 50, 
-                                       "Values", self._font_size_groupbox_title, 10)
+                                       "Values", self._font_size_groupbox_title, 5)
         
         # BTC volume
+        label_btc_size = self.__makeLabel(group_values, "Size", self._font_size_label, 
+                                            isBold=self._font_bold_label, alignment=Qt.AlignLeft)
+
         self.txt_btc = QLineEdit(group_values)
         self.txt_btc.setText("0")
         font = self.txt_btc.font()
         font.setPointSize(self._font_size_button)
         self.txt_btc.setFont(font)
-        self.txt_btc.resize((self._init_window_width - 40)//2, 20)
+        self.txt_btc.resize((self._init_window_width - 50)//2, 16)
         self.txt_btc.setStyleSheet("background-color:{};".format("white"))
         self.txt_btc.setValidator(QDoubleValidator())
         self.txt_btc.textChanged.connect(self.updateExpectedValues)
 
-        label_btc_volume = self.__makeLabel(group_values, "BTC", self._font_size_label, 
+        label_btc_unit = self.__makeLabel(group_values, "B", self._font_size_label, 
                                             isBold=self._font_bold_label, alignment=Qt.AlignLeft)
         
         # BTCJPY
@@ -247,7 +265,7 @@ class OrderBoard(QMainWindow):
         self.chk_btcjpy = QCheckBox(group_values)
         self.chk_btcjpy.setChecked(True)
         self.chk_btcjpy.resize(20, 20)
-        # self.chk_btcjpy.stateChanged.connect()
+        self.chk_btcjpy.stateChanged.connect(self.setTxtBTCJPYEditState)
 
         ## TextBox
         self.txt_btcjpy = QLineEdit(group_values)
@@ -255,10 +273,11 @@ class OrderBoard(QMainWindow):
         font = self.txt_btcjpy.font()
         font.setPointSize(self._font_size_button)
         self.txt_btcjpy.setFont(font)
-        self.txt_btcjpy.resize((self._init_window_width - 40)//2, 20)
+        self.txt_btcjpy.resize((self._init_window_width - 50)//2, 16)
         self.txt_btcjpy.setStyleSheet("background-color:{};".format("white"))
         self.txt_btcjpy.setValidator(QIntValidator())
         self.txt_btcjpy.textChanged.connect(self.updateExpectedValues)
+        self.txt_btcjpy.setReadOnly(True)
 
         label_jpy_unit = self.__makeLabel(group_values, "yen", self._font_size_label, 
                                           isBold=self._font_bold_label, alignment=Qt.AlignLeft)
@@ -272,7 +291,7 @@ class OrderBoard(QMainWindow):
         font = self.txt_stop.font()
         font.setPointSize(self._font_size_button)
         self.txt_stop.setFont(font)
-        self.txt_stop.resize((self._init_window_width - 40)//2, 20)
+        self.txt_stop.resize((self._init_window_width - 50)//2, 16)
         self.txt_stop.setStyleSheet("background-color:{};".format("white"))
         self.txt_stop.setValidator(QIntValidator())
         self.txt_stop.textChanged.connect(self.updateExpectedStop)
@@ -289,7 +308,7 @@ class OrderBoard(QMainWindow):
         font = self.txt_goal.font()
         font.setPointSize(self._font_size_button)
         self.txt_goal.setFont(font)
-        self.txt_goal.resize((self._init_window_width - 40)//2, 24)
+        self.txt_goal.resize((self._init_window_width - 50)//2, 16)
         self.txt_goal.setStyleSheet("background-color:{};".format("white"))
         self.txt_goal.setValidator(QIntValidator())
         self.txt_goal.textChanged.connect(self.updateExpectedGoal)
@@ -298,8 +317,9 @@ class OrderBoard(QMainWindow):
                                            isBold=self._font_bold_label, alignment=Qt.AlignLeft)
 
         # construct the layout
+        grid_values.addWidget(label_btc_size, 0, 0)
         grid_values.addWidget(self.txt_btc, 0, 1)
-        grid_values.addWidget(label_btc_volume, 0, 2)
+        grid_values.addWidget(label_btc_unit, 0, 2)
         
         grid_values.addWidget(self.chk_btcjpy, 1, 0)
         grid_values.addWidget(self.txt_btcjpy, 1, 1)
@@ -316,24 +336,24 @@ class OrderBoard(QMainWindow):
         """ Expected values """
         group_expected, grid_expected = \
             self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 50, 
-                                       "Expected values", self._font_size_groupbox_title, 10)
+                                       "Expected values", self._font_size_groupbox_title, 5)
         
         # Expected current value
-        label_expected_current = self.__makeLabel(group_expected, "Current value: ", self._font_size_label, 
+        label_expected_current = self.__makeLabel(group_expected, "Current: ", self._font_size_label, 
                                                   isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
         self.expected_current = self.__makeLabel(group_expected, "0", self._font_size_label, 
                                                  isBold=self._font_bold_label, alignment=Qt.AlignLeft)
 
         # Expected stop value
-        label_expected_stop = self.__makeLabel(group_expected, "Stop value: ", self._font_size_label, 
+        label_expected_stop = self.__makeLabel(group_expected, "Stop: ", self._font_size_label, 
                                                isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
         self.expected_stop = self.__makeLabel(group_expected, "0", self._font_size_label, 
                                               isBold=self._font_bold_label, alignment=Qt.AlignLeft)
         
         # Expected goal value
-        label_expected_goal = self.__makeLabel(group_expected, "Goal value: ", self._font_size_label, 
+        label_expected_goal = self.__makeLabel(group_expected, "Goal: ", self._font_size_label, 
                                                isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
         self.expected_goal = self.__makeLabel(group_expected, "0", self._font_size_label, 
@@ -347,11 +367,38 @@ class OrderBoard(QMainWindow):
         grid_expected.addWidget(label_expected_goal, 2, 0)
         grid_expected.addWidget(self.expected_goal, 2, 1)
 
-        """ Order button """
-        self.btn_order = self.__makePushButton(self, self._init_window_width - 40, 20, 
+
+        """ Order/Execution """
+        group_order, grid_order = \
+            self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 100, 
+                                       "Order/Get Exec", self._font_size_groupbox_title, 5)
+
+        # Order button
+        self.btn_order = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
                                                "Order", self._font_size_button, self.order, 
                                                color=self._init_button_color)
         self.btn_order.setEnabled(False)
+
+        # Get last execution button
+        self.btn_get_ex = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
+                                                 "Get Exec", self._font_size_button, self.getLastExecution, 
+                                                 color=self._init_button_color)
+        
+
+        # Order/Execution Log
+        self.txt_log = QTextEdit(group_order)
+        self.txt_log.setText("Log is shown here.")
+        font = self.txt_log.font()
+        font.setPointSize(self._font_size_button)
+        self.txt_log.setFont(font)
+        self.txt_log.resize(self._init_window_width - 20, 50)
+        self.txt_log.setStyleSheet("background-color:{};".format("white"))
+        self.txt_log.setReadOnly(True)
+        
+        # construct the layout
+        grid_order.addWidget(self.btn_order, 0, 0)
+        grid_order.addWidget(self.btn_get_ex, 0, 1)
+        grid_order.addWidget(self.txt_log, 1, 0, 1, 2)
 
         """ add all the widget """
         self.grid.addWidget(group_boardinfo, 0, 0)
@@ -359,7 +406,7 @@ class OrderBoard(QMainWindow):
         self.grid.addWidget(group_volume, 2, 0)
         self.grid.addWidget(group_values, 3, 0)
         self.grid.addWidget(group_expected, 4, 0)
-        self.grid.addWidget(self.btn_order, 5, 0)
+        self.grid.addWidget(group_order, 5, 0)
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
@@ -457,11 +504,58 @@ class OrderBoard(QMainWindow):
             button.clicked.connect(method)
 
         return button
+    
+    @footprint
+    def setMenuBar(self):
+        """setMenuBar(self) -> None
+        Set the contents of the menu bar
+        """
+        # File
+        file_menu = QMenu('&File', self)
 
+        ## Open
+        # file_menu.addAction('&Open', self.openFile,
+        #         QtCore.Qt.CTRL + QtCore.Qt.Key_O)
+
+        ## Config
+        file_menu.addAction('&Config', self.setConfig,
+                QtCore.Qt.CTRL + QtCore.Qt.Key_C)
+        
+        ## Quit
+        file_menu.addAction('&Quit', self.quitApp,
+                QtCore.Qt.CTRL + QtCore.Qt.Key_Q)
+        
+        self.menuBar().addMenu(file_menu)
+
+        # Help
+        # help_menu = QMenu('&Help', self)
+        # help_menu.addAction('Help', self.showHelp)
+        # help_menu.addAction('About...', self.showAbout)
+        # self.menuBar().addSeparator()
+        # self.menuBar().addMenu(help_menu)
+
+######################## Menu bar ########################
+    @footprint
+    def setConfig(self):
+        """setConfig(self) -> None
+        Set configuration of this application.
+        """
+        pass
+
+    @footprint
+    def quitApp(self):
+        """quitApp(self) -> None
+        Quit this application.
+        """
+        self.close()
+    
 ######################## Widgets' functions ########################
     @footprint
     @pyqtSlot()
     def runAutoGetTicker(self):
+        """runAutoGetTicker(self) -> None
+        run a function to get ticker on another thread
+        """
         if not self._timer_getData.isActive():
             # self.initData()
             self._timer_getData.start()
@@ -473,7 +567,9 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def getTickerMaually(self):
-        mag = 100
+        """getTickerMaually(self) -> None
+        get ticker
+        """
         try:
             result = self._api.ticker(product_code=self._product_code)
             if "timestamp" not in result.keys():
@@ -484,7 +580,7 @@ class OrderBoard(QMainWindow):
             self.label_best_bid_value.setText(str(result["best_bid"]))
             if self.chk_btcjpy.isChecked():
                 ltp = int(result["ltp"])
-                ltp_to_set = (ltp // mag + 1) * mag
+                ltp_to_set = (ltp // self._magnitude + 1) * self._magnitude
                 self.txt_btcjpy.setText(str(ltp_to_set))
         except Exception as ex:
             print(ex)
@@ -493,22 +589,31 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def updateOnAsk(self):
+        """updateOnAsk(self) -> None
+        update values when Ask button is pushed
+        """
         self.btn_bid.setChecked(False)
-        self.validateOrder()
+        self.checkValidationOfOrder()
         self.updateExpectedStop()
         self.updateExpectedGoal()
     
     @footprint
     @pyqtSlot()
     def updateOnBid(self):
+        """updateOnBid(self) -> None
+        update values when Bid button is pushed
+        """
         self.btn_ask.setChecked(False)
-        self.validateOrder()
+        self.checkValidationOfOrder()
         self.updateExpectedStop()
         self.updateExpectedGoal()
     
     @footprint
     @pyqtSlot()
-    def validateOrder(self):
+    def checkValidationOfOrder(self):
+        """checkValidationOfOrder(self) -> None
+        check validation of the order
+        """
         if not self.btn_ask.isChecked() and not self.btn_bid.isChecked():
             self.btn_order.setEnabled(False)
         else:
@@ -517,6 +622,9 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def add1pct(self):
+        """add1pct(self) -> None
+        add 0.01 BTC to the order size
+        """
         if self.txt_btc.text() == "":
             self.txt_btc.setText("{0:.2f}".format(0.01))
         else:
@@ -526,6 +634,9 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def add10pct(self):
+        """add10pct(self) -> None
+        add 0.1 BTC to the order size
+        """
         if self.txt_btc.text() == "":
             self.txt_btc.setText("{0:.2f}".format(0.1))
         else:
@@ -535,6 +646,9 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def add100pct(self):
+        """add100pct(self) -> None
+        add 1 BTC to the order size
+        """
         if self.txt_btc.text() == "":
             self.txt_btc.setText("{0:.2f}".format(1))
         else:
@@ -543,8 +657,20 @@ class OrderBoard(QMainWindow):
     
     @footprint
     @pyqtSlot()
-    def clearVolume(self):
+    def clearSize(self):
+        """clearSize(self) -> None
+        clear the order size
+        """
         self.txt_btc.setText("0")
+    
+    @footprint
+    def setTxtBTCJPYEditState(self, state):
+        """setTxtBTCJPYEditState(self, state) -> None
+        """
+        if state == 2:
+            self.txt_btcjpy.setReadOnly(True)
+        else:
+            self.txt_btcjpy.setReadOnly(False)
     
     @footprint
     @pyqtSlot()
@@ -594,6 +720,8 @@ class OrderBoard(QMainWindow):
         else:
             self.expected_goal.setText(str(int(btc * (btcjpy - goal_value))))
     
+    @footprint
+    @pyqtSlot()
     def order(self):
         """order(self) -> response
         """
@@ -614,7 +742,7 @@ class OrderBoard(QMainWindow):
         # IFDOCO setting
         ## IDF
         params_ifd = {
-            "product_code":"BTC_JPY",
+            "product_code":self._product_code,
             "condition_type":"LIMIT",
             "side":side_ifd,
             "price":btcjpy,
@@ -623,7 +751,7 @@ class OrderBoard(QMainWindow):
 
         ## OCO1: stop
         params_oco1 = {
-            "product_code":"BTC_JPY",
+            "product_code":self._product_code,
             "condition_type":"STOP",
             "side":side_oco,
             "trigger_price":stop,
@@ -632,7 +760,7 @@ class OrderBoard(QMainWindow):
 
         ## OCO2: goal
         params_oco2 = {
-            "product_code":"BTC_JPY",
+            "product_code":self._product_code,
             "condition_type":"STOP",
             "side":side_oco,
             "trigger_price":goal,
@@ -646,16 +774,68 @@ class OrderBoard(QMainWindow):
 
         }
         try:
-            if DEBUG:
+            if self.__DEBUG:
                 print(params)
-                result = ""
+                self._execution_count += 1
+                result = {"parent_order_acceptance_id":self._execution_count}
             else:
-                pass
                 result = self._api.sendparentorder(**params)
-                print(result["parent_order_acceptance_id"])
-            self._executions.append(dict(param=params, result=result))
+                
+            self._executions.append(
+                dict(
+                    param=params, 
+                    parent_order_id=result["parent_order_acceptance_id"]
+                )
+            )
+            self.txt_log.append(result["parent_order_acceptance_id"])
+            self.txt_log.scrollToAnchor()
+            # print(result["parent_order_acceptance_id"])
+            self.saveLastExecution()
+
         except Exception as ex:
             print(ex)
+    
+    @footprint
+    def saveExecutions(self):
+        if len(self._executions) <= 0:
+            return
+        datetimeFmt = "%Y%m%d%H%M%S"
+        now = datetime.datetime.now().strftime(datetimeFmt)
+        fpath = os.path.join(os.path.dirname(__file__), "data", "{}.json".format(now))
+        history = dict(executions=self._executions)
+        with open(fpath, "w") as ff:
+            json.dump(history, ff, indent=4)
+    
+    @footprint
+    def saveLastExecution(self):
+        if len(self._executions) <= 0:
+            return
+        tmpfldr = os.path.join(os.path.dirname(__file__), "tmp")
+        if not os.path.exists(tmpfldr):
+            os.mkdir(tmpfldr)
+        datetimeFmt = "%Y%m%d%H%M%S"
+        now = datetime.datetime.now().strftime(datetimeFmt)
+        fpath = os.path.join(os.path.dirname(__file__), "tmp", "{}.json".format(now))
+        history = dict(executions=self._executions)
+        with open(fpath, "w") as ff:
+            json.dump(history, ff, indent=4)
+
+    @footprint
+    @pyqtSlot()
+    def getLastExecution(self):
+        # last_execution = self._executions[-1]
+        # parent_order_id = last_execution["parent_order_id"]
+        count = 2
+        results = self._api.getexecutions(product_code=self._product_code, count=count)
+        for ii in range(len(results)):
+            result = results[-ii-1]
+            result_str = "{0} {1} {2} {3}".\
+                format(result["exec_date"], result["side"], result["price"], result["size"])
+            self.txt_log.append(result_str)
+            self.txt_log.scrollToAnchor()
+            # print(result["exec_date"])
+            # print(result["side"], result["price"], result["size"])
+            # print("")
     
 ######################## GetDataProess functions ########################
     @footprint
@@ -691,7 +871,7 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot(object)
     def updateData(self, obj):
-        mag = 100
+        mag = 20
         if obj is not None:
             try:
                 if "timestamp" not in obj.keys():
@@ -728,6 +908,13 @@ class OrderBoard(QMainWindow):
                 string, QMessageBox.Ok)
             event.ignore()
             return
+        if self._timer_getData.isActive():
+            string = "Some timers are still running.\n"
+            string += "Please wait for their finishing."
+            confirmObject = QMessageBox.warning(self, "Closing is ignored.",
+                string, QMessageBox.Ok)
+            event.ignore()
+            return
         if self._closing_dialog:
             confirmObject = QMessageBox.question(self, "Closing...",
                 "Are you sure to quit?", QMessageBox.Yes | QMessageBox.No,
@@ -746,13 +933,6 @@ class OrderBoard(QMainWindow):
     def stopAllTimers(self):
         if self._timer_getData.isActive():
             self._timer_getData.stop()
-    
-    @footprint
-    def saveExecutions(self):
-        datetimeFmt = "%Y%m%d%H%M%S"
-        now = datetime.datetime.now().strftime(datetimeFmt)
-        with open(os.path.join(os.path.dirname(__file__), "data", "{}.executions".format(now)), "wb") as ff:
-            pickle.dump(self._executions, ff)
 
 def main():
     app = QtGui.QApplication([])
