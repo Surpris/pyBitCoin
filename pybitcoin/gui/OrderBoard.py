@@ -9,7 +9,7 @@ import glob
 import pybitflyer
 
 from PyQt5.QtWidgets import QMainWindow, QGridLayout, QMenu, QWidget, QLabel, QLineEdit, QTextEdit
-from PyQt5.QtWidgets import QCheckBox
+from PyQt5.QtWidgets import QCheckBox, qApp
 from PyQt5.QtGui import QIcon, QPalette, QColor, QPixmap
 from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QPushButton, QMessageBox, QGroupBox, QDialog, QVBoxLayout, QHBoxLayout
@@ -32,6 +32,10 @@ class OrderBoard(QMainWindow):
         super().__init__()
         self.initInnerParameters(filepath)
         self.initGui()
+        # For QPushButton on QMassageBox
+        str_ = "background-color:{0};".format(self._init_button_color)
+        qApp.setStyleSheet("QMessageBox::QPushButton{" + str_ + "}")
+        qApp.setStyleSheet("QMessageBox::QPushButton{" + str_ + "}")
         self.initGetDataProcess()
     
     @footprint
@@ -51,7 +55,8 @@ class OrderBoard(QMainWindow):
         self._init_window_width = 260 # [pixel]
         self._init_window_height = 675 # [pixel]
         self._init_button_color = "#EBF5FB"
-        self.main_bgcolor = "#FDF2E9"
+        self._txt_bgcolor = "#D0D3D4"
+        self.main_bgcolor = "#566573"
 
         self._get_data_interval = 1 # [sec]
         self._get_data_worker_sleep_interval = self._get_data_interval - 0.1 # [sec]
@@ -93,7 +98,7 @@ class OrderBoard(QMainWindow):
         #     self.loadConfigGetData(filepath)
 
         """ Parameters for emulation """
-        self.__DEBUG = True
+        self.__DEBUG = False
     
     @footprint
     @pyqtSlot()
@@ -126,7 +131,10 @@ class OrderBoard(QMainWindow):
         self.initMainWidget()
         self.setMenuBar()
 
-        self.setWindowTitle("Order Board")
+        if self.__DEBUG:
+            self.setWindowTitle("Order Board(Emulate)")
+        else:
+            self.setWindowTitle("Order Board")
         self.resize(self._init_window_width, self._init_window_height)
 
         """ Board information """
@@ -140,7 +148,7 @@ class OrderBoard(QMainWindow):
         
         self.label_best_ask_value = \
             self.__makeLabel(group_boardinfo, "-1", self._font_size_label, 
-                             isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="green")
+                             isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="#16A085")
 
         # Last execution
         label_ltp = self.__makeLabel(group_boardinfo, "LTP: ", self._font_size_label, 
@@ -156,7 +164,7 @@ class OrderBoard(QMainWindow):
         
         self.label_best_bid_value = \
             self.__makeLabel(group_boardinfo, "-1 ", self._font_size_label, 
-                             isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="red")
+                             isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="#EC7063")
         
         # Start ticker button
         # self.btn_start_ticker = \
@@ -189,13 +197,13 @@ class OrderBoard(QMainWindow):
         
         self.btn_ask = self.__makePushButton(group_bidask, (self._init_window_width - 40)//2, 20, 
                                              "Ask", self._font_size_button, None, 
-                                             color="green")
+                                             color="#16A085")
         self.btn_ask.setCheckable(True)
         self.btn_ask.clicked.connect(self.updateOnAsk)
         
         self.btn_bid = self.__makePushButton(group_bidask, (self._init_window_width - 40)//2, 20, 
                                              "Bid", self._font_size_button, None, 
-                                             color="red")
+                                             color="#EC7063")
         self.btn_bid.setCheckable(True)
         self.btn_bid.clicked.connect(self.updateOnBid)
 
@@ -212,25 +220,25 @@ class OrderBoard(QMainWindow):
         self.btn_1pct = self.__makePushButton(group_volume, 
                                                (self._init_window_width - 40)//4, 20, 
                                                "+0.01", self._font_size_button, self.add1pct, 
-                                               color=self._init_button_color)
+                                               color=self._init_button_color, isBold=True)
 
         # +0.1 BTCs button
         self.btn_10pct = self.__makePushButton(group_volume, 
                                                (self._init_window_width - 40)//4, 20, 
                                                "+0.1", self._font_size_button, self.add10pct, 
-                                               color=self._init_button_color)
+                                               color=self._init_button_color, isBold=True)
 
         # +1 BTCs button
         self.btn_100pct = self.__makePushButton(group_volume, 
                                                (self._init_window_width - 40)//4, 20, 
                                                "+1", self._font_size_button, self.add100pct, 
-                                               color=self._init_button_color)
+                                               color=self._init_button_color, isBold=True)
 
         # clear button
         self.btn_clear = self.__makePushButton(group_volume, 
                                                (self._init_window_width - 40)//4, 20, 
                                                "C", self._font_size_button, self.clearSize, 
-                                               color=self._init_button_color)
+                                               color=self._init_button_color, isBold=True)
 
         # construct the layout
         grid_volume.addWidget(self.btn_1pct, 0, 0)
@@ -253,7 +261,7 @@ class OrderBoard(QMainWindow):
         font.setPointSize(self._font_size_button)
         self.txt_btc.setFont(font)
         self.txt_btc.resize((self._init_window_width - 50)//2, 16)
-        self.txt_btc.setStyleSheet("background-color:{};".format("white"))
+        self.txt_btc.setStyleSheet("background-color:{};".format(self._txt_bgcolor))
         self.txt_btc.setValidator(QDoubleValidator())
         self.txt_btc.textChanged.connect(self.updateExpectedValues)
 
@@ -274,7 +282,7 @@ class OrderBoard(QMainWindow):
         font.setPointSize(self._font_size_button)
         self.txt_btcjpy.setFont(font)
         self.txt_btcjpy.resize((self._init_window_width - 50)//2, 16)
-        self.txt_btcjpy.setStyleSheet("background-color:{};".format("white"))
+        self.txt_btcjpy.setStyleSheet("background-color:{};".format(self._txt_bgcolor))
         self.txt_btcjpy.setValidator(QIntValidator())
         self.txt_btcjpy.textChanged.connect(self.updateExpectedValues)
         self.txt_btcjpy.setReadOnly(True)
@@ -292,7 +300,7 @@ class OrderBoard(QMainWindow):
         font.setPointSize(self._font_size_button)
         self.txt_stop.setFont(font)
         self.txt_stop.resize((self._init_window_width - 50)//2, 16)
-        self.txt_stop.setStyleSheet("background-color:{};".format("white"))
+        self.txt_stop.setStyleSheet("background-color:{};".format(self._txt_bgcolor))
         self.txt_stop.setValidator(QIntValidator())
         self.txt_stop.textChanged.connect(self.updateExpectedStop)
 
@@ -309,7 +317,7 @@ class OrderBoard(QMainWindow):
         font.setPointSize(self._font_size_button)
         self.txt_goal.setFont(font)
         self.txt_goal.resize((self._init_window_width - 50)//2, 16)
-        self.txt_goal.setStyleSheet("background-color:{};".format("white"))
+        self.txt_goal.setStyleSheet("background-color:{};".format(self._txt_bgcolor))
         self.txt_goal.setValidator(QIntValidator())
         self.txt_goal.textChanged.connect(self.updateExpectedGoal)
 
@@ -376,13 +384,13 @@ class OrderBoard(QMainWindow):
         # Order button
         self.btn_order = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
                                                "Order", self._font_size_button, self.order, 
-                                               color=self._init_button_color)
+                                               color=self._init_button_color, isBold=True)
         self.btn_order.setEnabled(False)
 
         # Get last execution button
         self.btn_get_ex = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
                                                  "Get Exec", self._font_size_button, self.getLastExecution, 
-                                                 color=self._init_button_color)
+                                                 color=self._init_button_color, isBold=True)
         
 
         # Order/Execution Log
@@ -472,8 +480,8 @@ class OrderBoard(QMainWindow):
             label.setPalette(pal)
         return label
     
-    def __makePushButton(self, parent, width, height, text, fontsize, method=None, color=None):
-        """__makePushButton(self, parent, width, height, text, fontsize, method, color=None) -> QPushButton
+    def __makePushButton(self, parent, width, height, text, fontsize, method=None, color=None, isBold=False):
+        """__makePushButton(self, parent, width, height, text, fontsize, method, color, isBold) -> QPushButton
 
         Parameters
         ----------
@@ -484,6 +492,7 @@ class OrderBoard(QMainWindow):
         fontsize : str
         method : function
         color : str (color code)
+        isBold : bool
 
         Returns
         -------
@@ -777,20 +786,38 @@ class OrderBoard(QMainWindow):
             if self.__DEBUG:
                 print(params)
                 self._execution_count += 1
-                result = {"parent_order_acceptance_id":self._execution_count}
+                result = {"parent_order_acceptance_id":str(self._execution_count)}
             else:
                 result = self._api.sendparentorder(**params)
-                
+            
+            print(result)
+        except Exception as ex:
+            print("@ sending order:", ex)
+        
+        try:
+            if "parent_order_acceptance_id" not in result:
+                parent_order_acceptance_id = self._execution_count
+                message = "no data of 'parent_order_acceptance_id'"
+            else:
+                parent_order_acceptance_id = result["parent_order_acceptance_id"]
+                message = result["parent_order_acceptance_id"]
+            
             self._executions.append(
                 dict(
                     param=params, 
-                    parent_order_id=result["parent_order_acceptance_id"]
+                    parent_order_acceptance_id=parent_order_acceptance_id
                 )
             )
-            self.txt_log.append(result["parent_order_acceptance_id"])
-            self.txt_log.scrollToAnchor()
-            # print(result["parent_order_acceptance_id"])
             self.saveLastExecution()
+        except Exception as ex:
+            print("@ saving an order:", ex)
+        
+        try:
+            self.txt_log.append("order id: " + message)
+            # self.txt_log.scrollToAnchor()
+        except Exception as ex:
+            print("@ logging:", ex)
+            
 
         except Exception as ex:
             print(ex)
@@ -832,7 +859,7 @@ class OrderBoard(QMainWindow):
             result_str = "{0} {1} {2} {3}".\
                 format(result["exec_date"], result["side"], result["price"], result["size"])
             self.txt_log.append(result_str)
-            self.txt_log.scrollToAnchor()
+            # self.txt_log.scrollToAnchor()
             # print(result["exec_date"])
             # print(result["side"], result["price"], result["size"])
             # print("")
