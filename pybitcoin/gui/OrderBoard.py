@@ -92,6 +92,10 @@ class OrderBoard(QMainWindow):
         # for setting BTCJPY
         self._magnitude = 20
 
+        # order type
+        # self._order_type = "ifdoco"
+        self._order_type = "child"
+
         # if os.path.exists(os.path.join(os.path.dirname(__file__), "config.json")):
         #     self.loadConfig()
         # if os.path.exists(filepath):
@@ -732,7 +736,17 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def order(self):
-        """order(self) -> response
+        """order(self) -> None
+        """
+        if self._order_type == "ifdoco":
+            self._sendIfdocoOrder()
+        else:
+            self._sendChildOrder()
+    
+    @footprint
+    def _sendIfdocoOrder(self):
+        """_sendIfdocoOrder(self) -> None
+        send an IFDOCO order.
         """
         # get size and prices
         btcjpy = int(self.txt_btcjpy.text())
@@ -817,10 +831,88 @@ class OrderBoard(QMainWindow):
             # self.txt_log.scrollToAnchor()
         except Exception as ex:
             print("@ logging:", ex)
-            
+    
+    @footprint
+    def _sendChildOrder(self):
+        """_sendChildOrder(self) -> None
+        send an IFDOCO order.
+        """
+        # get size and prices
+        btcjpy = int(self.txt_btcjpy.text())
+        btc = float(self.txt_btc.text())
+        if self.btn_ask.isChecked():
+            # stop = btcjpy - int(self.txt_stop.text())
+            # goal = btcjpy + int(self.txt_goal.text())
+            side = "BUY"
+        else:
+            # stop = btcjpy + int(self.txt_stop.text())
+            # goal = btcjpy - int(self.txt_goal.text())
+            side = "SELL"
+        
+        # Order setting
+        ## Child
+        params = {
+            "product_code":self._product_code,
+            "child_order_type":"LIMIT",
+            "side":side,
+            "price":btcjpy,
+            "size":btc,
+            "minute_to_expire":10
+        }
+        
+        # ## OCO1: stop
+        # params_oco1 = {
+        #     "product_code":self._product_code,
+        #     "child_order_type":"STOP",
+        #     "side":side_oco,
+        #     "trigger_price":stop,
+        #     "size":btc
+        # }
 
+        # ## OCO2: goal
+        # params_oco2 = {
+        #     "product_code":self._product_code,
+        #     "child_order_type":"STOP",
+        #     "side":side_oco,
+        #     "trigger_price":goal,
+        #     "size":btc
+        # }
+
+        try:
+            if self.__DEBUG:
+                print(params)
+                self._execution_count += 1
+                result = {"child_order_acceptance_id":str(self._execution_count)}
+            else:
+                result = self._api.sendchildorder(**params)
+            
+            print(result)
         except Exception as ex:
-            print(ex)
+            print("@ sending order:", ex)
+        
+        try:
+            if "child_order_acceptance_id" not in result:
+                child_order_acceptance_id = self._execution_count
+                message = "no data of 'child_order_acceptance_id'"
+            else:
+                child_order_acceptance_id = result["child_order_acceptance_id"]
+                message = result["child_order_acceptance_id"]
+            
+            self._executions.append(
+                dict(
+                    param=params, 
+                    child_order_acceptance_id=child_order_acceptance_id
+                )
+            )
+            self.saveLastExecution()
+        except Exception as ex:
+            print("@ saving an order:", ex)
+        
+        try:
+            self.txt_log.append("order id: " + message)
+            # self.txt_log.scrollToAnchor()
+        except Exception as ex:
+            print("@ logging:", ex)
     
     @footprint
     def saveExecutions(self):
