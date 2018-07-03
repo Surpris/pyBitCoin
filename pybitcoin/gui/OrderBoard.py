@@ -52,7 +52,7 @@ class OrderBoard(QMainWindow):
         self._font_size_groupbox_title = 12 # [pixel]
         self._font_size_label = 11 # [pixel]
         self._font_bold_label = True
-        self._init_window_width = 260 # [pixel]
+        self._init_window_width = 360 # [pixel]
         self._init_window_height = 675 # [pixel]
         self._init_button_color = "#EBF5FB"
         self._txt_bgcolor = "#D0D3D4"
@@ -141,9 +141,27 @@ class OrderBoard(QMainWindow):
             self.setWindowTitle("Order Board")
         self.resize(self._init_window_width, self._init_window_height)
 
+        """ Bank information """
+        group_bankinfo, grid_bankinfo = \
+            self.__makeGroupboxAndGrid(self, (self._init_window_width - 20)//3, 50, 
+                                       "Board Info.", self._font_size_groupbox_title, 5)
+        
+        self.jpy_value = self.__makeLabel(group_bankinfo, "-1", self._font_size_label, 
+                                          isBold=self._font_bold_label, alignment=Qt.AlignRight, color="white")
+        
+        self.btc_value = self.__makeLabel(group_bankinfo, "-1", self._font_size_label, 
+                                          isBold=self._font_bold_label, alignment=Qt.AlignRight, color="white")
+        
+        self.tot_value = self.__makeLabel(group_bankinfo, "-1", self._font_size_label, 
+                                          isBold=self._font_bold_label, alignment=Qt.AlignRight, color="white")
+        
+        grid_bankinfo.addWidget(self.jpy_value, 0, 0)
+        grid_bankinfo.addWidget(self.btc_value, 1, 0)
+        grid_bankinfo.addWidget(self.tot_value, 2, 0)
+
         """ Board information """
         group_boardinfo, grid_boardinfo = \
-            self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 50, 
+            self.__makeGroupboxAndGrid(self, (self._init_window_width - 20)*2//3, 50, 
                                        "Board Info.", self._font_size_groupbox_title, 5)
 
         # Best ask
@@ -413,12 +431,13 @@ class OrderBoard(QMainWindow):
         grid_order.addWidget(self.txt_log, 1, 0, 1, 2)
 
         """ add all the widget """
-        self.grid.addWidget(group_boardinfo, 0, 0)
-        self.grid.addWidget(group_bidask, 1, 0)
-        self.grid.addWidget(group_volume, 2, 0)
-        self.grid.addWidget(group_values, 3, 0)
-        self.grid.addWidget(group_expected, 4, 0)
-        self.grid.addWidget(group_order, 5, 0)
+        self.grid.addWidget(group_bankinfo, 0, 0)
+        self.grid.addWidget(group_boardinfo, 0, 1, 1, 3)
+        self.grid.addWidget(group_bidask, 1, 0, 1, 4)
+        self.grid.addWidget(group_volume, 2, 0, 1, 4)
+        self.grid.addWidget(group_values, 3, 0, 1, 4)
+        self.grid.addWidget(group_expected, 4, 0, 1, 4)
+        self.grid.addWidget(group_order, 5, 0, 1, 4)
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
@@ -766,7 +785,7 @@ class OrderBoard(QMainWindow):
         ## IDF
         params_ifd = {
             "product_code":self._product_code,
-            "condition_type":"LIMIT",
+            "condition_type":"MARKET",
             "side":side_ifd,
             "price":btcjpy,
             "size":btc
@@ -944,7 +963,7 @@ class OrderBoard(QMainWindow):
     def getLastExecution(self):
         # last_execution = self._executions[-1]
         # parent_order_id = last_execution["parent_order_id"]
-        count = 2
+        count = 1
         results = self._api.getexecutions(product_code=self._product_code, count=count)
         for ii in range(len(results)):
             result = results[-ii-1]
@@ -993,16 +1012,32 @@ class OrderBoard(QMainWindow):
         mag = 20
         if obj is not None:
             try:
-                if "timestamp" not in obj.keys():
+                # Board information
+                market_data = obj["market_data"]
+                if "timestamp" not in market_data.keys():
                     print("Failure in getting ticker.")
                     return
-                self.label_best_ask_value.setText(str(obj["best_ask"]))
-                self.label_ltp_value.setText(str(obj["ltp"]))
-                self.label_best_bid_value.setText(str(obj["best_bid"]))
+                self.label_best_ask_value.setText(str(market_data["best_ask"]))
+                self.label_ltp_value.setText(str(market_data["ltp"]))
+                self.label_best_bid_value.setText(str(market_data["best_bid"]))
                 if self.chk_btcjpy.isChecked():
-                    ltp = int(obj["ltp"])
+                    ltp = int(market_data["ltp"])
                     ltp_to_set = (ltp // mag + 1) * mag
                     self.txt_btcjpy.setText(str(ltp_to_set))
+                
+                # Balance information
+                balance = obj["balance"]
+                jpy_amount = 0
+                btc_amount = 0
+                for currency in balance:
+                    if currency["currency_code"] == "JPY":
+                        jpy_amount = currency["amount"]
+                    elif currency["currency_code"] == "BTC":
+                        btc_amount = currency["amount"]
+                self.jpy_value.setText(str(jpy_amount))
+                self.btc_value.setText(str("{0:.5f}".format(btc_amount)))
+                self.tot_value.setText(str(jpy_amount + int(btc_amount * market_data["ltp"])))
+                    
             except Exception as ex:
                 print(ex)
                 return
@@ -1012,7 +1047,7 @@ class OrderBoard(QMainWindow):
     def checkIsTimerStopped(self):
         if self.stopTimer:
             self._timer_getData.stop()
-            print("timer stopped.")
+            # print("timer stopped.")
             self.stopTimer = False
             self.btn_start_ticker.setEnabled(True)
             self.btn_start_ticker.setText("Start")
@@ -1041,17 +1076,28 @@ class OrderBoard(QMainWindow):
             if confirmObject == QMessageBox.Yes:
                 self.stopAllTimers()
                 self.saveExecutions()
+                self.deleteTempExecutions()
                 event.accept()
             else:
                 event.ignore()
         else:
             self.stopAllTimers()
             self.saveExecutions()
+            self.deleteTempExecutions()
 
     @footprint
     def stopAllTimers(self):
         if self._timer_getData.isActive():
             self._timer_getData.stop()
+    
+    @footprint
+    def deleteTempExecutions(self):
+        if not self.__DEBUG:
+            tmpfldr = os.path.join(os.path.dirname(__file__), "tmp")
+            if os.path.exists(tmpfldr):
+                flist = glob.glob(os.path.join(tmpfldr, "*"))
+                for fpath in flist:
+                    os.remove(fpath)
 
 def main():
     app = QtGui.QApplication([])

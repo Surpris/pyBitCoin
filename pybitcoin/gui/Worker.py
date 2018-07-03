@@ -105,5 +105,7 @@ class GetTickerWorker(Worker):
         self._product_code = product_code
 
     def _process(self):
-        self.data = self._api.ticker(product_code=self._product_code)
+        market_data = self._api.ticker(product_code=self._product_code)
+        balance = self._api.getbalance()
+        self.data = {"market_data":market_data, "balance":balance}
         # self.stopWorking = True
