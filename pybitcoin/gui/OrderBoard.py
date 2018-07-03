@@ -287,7 +287,7 @@ class OrderBoard(QMainWindow):
         font = self.txt_btc.font()
         font.setPointSize(self._font_size_button)
         self.txt_btc.setFont(font)
-        self.txt_btc.resize((self._init_window_width - 50)//2, 16)
+        self.txt_btc.resize((self._init_window_width - 50)//3, 16)
         self.txt_btc.setStyleSheet("background-color:{};".format(self._txt_bgcolor))
         self.txt_btc.setValidator(QDoubleValidator())
         self.txt_btc.textChanged.connect(self.updateExpectedValues)
@@ -308,7 +308,7 @@ class OrderBoard(QMainWindow):
         font = self.txt_btcjpy.font()
         font.setPointSize(self._font_size_button)
         self.txt_btcjpy.setFont(font)
-        self.txt_btcjpy.resize((self._init_window_width - 50)//2, 16)
+        self.txt_btcjpy.resize((self._init_window_width - 50)//3, 16)
         self.txt_btcjpy.setStyleSheet("background-color:{};".format(self._txt_bgcolor))
         self.txt_btcjpy.setValidator(QIntValidator())
         self.txt_btcjpy.textChanged.connect(self.updateExpectedValues)
@@ -326,7 +326,7 @@ class OrderBoard(QMainWindow):
         font = self.txt_stop.font()
         font.setPointSize(self._font_size_button)
         self.txt_stop.setFont(font)
-        self.txt_stop.resize((self._init_window_width - 50)//2, 16)
+        self.txt_stop.resize((self._init_window_width - 50)//3, 16)
         self.txt_stop.setStyleSheet("background-color:{};".format(self._txt_bgcolor))
         self.txt_stop.setValidator(QIntValidator())
         self.txt_stop.textChanged.connect(self.updateExpectedStop)
@@ -343,7 +343,7 @@ class OrderBoard(QMainWindow):
         font = self.txt_goal.font()
         font.setPointSize(self._font_size_button)
         self.txt_goal.setFont(font)
-        self.txt_goal.resize((self._init_window_width - 50)//2, 16)
+        self.txt_goal.resize((self._init_window_width - 50)//3, 16)
         self.txt_goal.setStyleSheet("background-color:{};".format(self._txt_bgcolor))
         self.txt_goal.setValidator(QIntValidator())
         self.txt_goal.textChanged.connect(self.updateExpectedGoal)
@@ -374,33 +374,33 @@ class OrderBoard(QMainWindow):
                                        "Expected values", self._font_size_groupbox_title, 5)
         
         # Expected current value
-        label_expected_current = self.__makeLabel(group_expected, "Current: ", self._font_size_label, 
-                                                  isBold=self._font_bold_label, alignment=Qt.AlignRight)
+        # label_expected_current = self.__makeLabel(group_expected, "Current: ", self._font_size_label, 
+        #                                           isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
         self.expected_current = self.__makeLabel(group_expected, "0", self._font_size_label, 
                                                  isBold=self._font_bold_label, alignment=Qt.AlignLeft)
 
         # Expected stop value
-        label_expected_stop = self.__makeLabel(group_expected, "Stop: ", self._font_size_label, 
-                                               isBold=self._font_bold_label, alignment=Qt.AlignRight)
+        # label_expected_stop = self.__makeLabel(group_expected, "Stop: ", self._font_size_label, 
+        #                                        isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
         self.expected_stop = self.__makeLabel(group_expected, "0", self._font_size_label, 
                                               isBold=self._font_bold_label, alignment=Qt.AlignLeft)
         
         # Expected goal value
-        label_expected_goal = self.__makeLabel(group_expected, "Goal: ", self._font_size_label, 
-                                               isBold=self._font_bold_label, alignment=Qt.AlignRight)
+        # label_expected_goal = self.__makeLabel(group_expected, "Goal: ", self._font_size_label, 
+        #                                        isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
         self.expected_goal = self.__makeLabel(group_expected, "0", self._font_size_label, 
                                               isBold=self._font_bold_label, alignment=Qt.AlignLeft)
         
         # construct the layout
-        grid_expected.addWidget(label_expected_current, 0, 0)
-        grid_expected.addWidget(self.expected_current, 0, 1)
-        grid_expected.addWidget(label_expected_stop, 1, 0)
-        grid_expected.addWidget(self.expected_stop, 1, 1)
-        grid_expected.addWidget(label_expected_goal, 2, 0)
-        grid_expected.addWidget(self.expected_goal, 2, 1)
+        # grid_expected.addWidget(label_expected_current, 0, 0)
+        grid_expected.addWidget(self.expected_current, 0, 0)
+        # grid_expected.addWidget(label_expected_stop, 1, 0)
+        grid_expected.addWidget(self.expected_stop, 1, 0)
+        # grid_expected.addWidget(label_expected_goal, 2, 0)
+        grid_expected.addWidget(self.expected_goal, 2, 0)
 
 
         """ Order/Execution """
@@ -436,13 +436,13 @@ class OrderBoard(QMainWindow):
         grid_order.addWidget(self.txt_log, 1, 0, 1, 2)
 
         """ add all the widget """
-        self.grid.addWidget(group_bankinfo, 0, 0)
+        self.grid.addWidget(group_bankinfo, 0, 0, 1, 1)
         self.grid.addWidget(group_boardinfo, 0, 1, 1, 3)
-        self.grid.addWidget(group_bidask, 1, 0, 1, 4)
-        self.grid.addWidget(group_volume, 2, 0, 1, 4)
-        self.grid.addWidget(group_values, 3, 0, 1, 4)
-        self.grid.addWidget(group_expected, 4, 0, 1, 4)
-        self.grid.addWidget(group_order, 5, 0, 1, 4)
+        self.grid.addWidget(group_volume, 1, 0, 1, 4)
+        self.grid.addWidget(group_expected, 2, 0, 1, 1)
+        self.grid.addWidget(group_values, 2, 1, 1, 3)
+        self.grid.addWidget(group_bidask, 3, 0, 1, 4)
+        self.grid.addWidget(group_order, 4, 0, 1, 4)
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
