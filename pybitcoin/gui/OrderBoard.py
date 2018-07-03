@@ -185,15 +185,18 @@ class OrderBoard(QMainWindow):
                                      isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
         self.label_best_bid_value = \
-            self.__makeLabel(group_boardinfo, "-1 ", self._font_size_label, 
+            self.__makeLabel(group_boardinfo, "-1", self._font_size_label, 
                              isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="#EC7063")
         
-        # Start ticker button
-        # self.btn_start_ticker = \
-        #     self.__makePushButton(group_boardinfo, 
-        #                           (self._init_window_width - 40)//4, 60, 
-        #                           "Start", self._font_size_button, self.getTickerManually, 
-        #                           color=self._init_button_color)
+        # Health/State
+        self.health_info = \
+            self.__makeLabel(group_boardinfo, "STOP", self._font_size_label, 
+                             isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="white")
+        
+        self.state_info = \
+            self.__makeLabel(group_boardinfo, "CLOSED", self._font_size_label, 
+                             isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="white")
+        
         self.btn_start_ticker = \
             self.__makePushButton(group_boardinfo, 
                                   (self._init_window_width - 40)//4, 60, 
@@ -210,7 +213,9 @@ class OrderBoard(QMainWindow):
         grid_boardinfo.addWidget(label_best_bid, 2, 0, 1, 1)
         grid_boardinfo.addWidget(self.label_best_bid_value, 2, 1, 1, 1)
 
-        grid_boardinfo.addWidget(self.btn_start_ticker, 0, 2, 3, 1)
+        grid_boardinfo.addWidget(self.health_info, 0, 2, 1, 1)
+        grid_boardinfo.addWidget(self.state_info, 1, 2, 1, 1)
+        grid_boardinfo.addWidget(self.btn_start_ticker, 2, 2, 1, 1)
 
         """ Bid / Ask setting """
         group_bidask, grid_bidask = \
@@ -1012,6 +1017,10 @@ class OrderBoard(QMainWindow):
         mag = 20
         if obj is not None:
             try:
+                # Health information
+                health = obj["health"]
+                self.health_info.setText(health["health"])
+                self.state_info.setText(health["state"])
                 # Board information
                 market_data = obj["market_data"]
                 if "timestamp" not in market_data.keys():
