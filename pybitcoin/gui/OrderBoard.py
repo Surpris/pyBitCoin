@@ -178,7 +178,7 @@ class OrderBoard(QMainWindow):
         
         self.label_ltp_value = \
             self.__makeLabel(group_boardinfo, "-1", self._font_size_label, 
-                             isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="#0B5345")
+                             isBold=self._font_bold_label, alignment=Qt.AlignLeft, color="lightgray")
 
         # Best bid
         label_best_bid = self.__makeLabel(group_boardinfo, "Bid: ", self._font_size_label, 
@@ -416,9 +416,19 @@ class OrderBoard(QMainWindow):
 
         # Get last execution button
         self.btn_get_ex = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
-                                                 "Get Exec", self._font_size_button, self.getLastExecution, 
+                                                 "Exec", self._font_size_button, self.getLastExecution, 
                                                  color=self._init_button_color, isBold=True)
         
+        # Get last order state button
+        self.btn_get_los = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
+                                                 "Last Order", self._font_size_button, self.getLastOrderState, 
+                                                 color=self._init_button_color, isBold=True)
+        
+        # cancel all order button
+        self.btn_cancel_all = \
+            self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
+                                  "Cancel", self._font_size_button, self.cancelAllOrders, 
+                                  color=self._init_button_color, isBold=True)
 
         # Order/Execution Log
         self.txt_log = QTextEdit(group_order)
@@ -433,7 +443,9 @@ class OrderBoard(QMainWindow):
         # construct the layout
         grid_order.addWidget(self.btn_order, 0, 0)
         grid_order.addWidget(self.btn_get_ex, 0, 1)
-        grid_order.addWidget(self.txt_log, 1, 0, 1, 2)
+        grid_order.addWidget(self.btn_get_los, 1, 0)
+        grid_order.addWidget(self.btn_cancel_all, 1, 1)
+        grid_order.addWidget(self.txt_log, 2, 0, 1, 2)
 
         """ add all the widget """
         self.grid.addWidget(group_bankinfo, 0, 0, 1, 1)
@@ -966,8 +978,8 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def getLastExecution(self):
-        # last_execution = self._executions[-1]
-        # parent_order_id = last_execution["parent_order_id"]
+        """
+        """
         count = 1
         results = self._api.getexecutions(product_code=self._product_code, count=count)
         for ii in range(len(results)):
@@ -975,10 +987,24 @@ class OrderBoard(QMainWindow):
             result_str = "{0} {1} {2} {3}".\
                 format(result["exec_date"], result["side"], result["price"], result["size"])
             self.txt_log.append(result_str)
-            # self.txt_log.scrollToAnchor()
-            # print(result["exec_date"])
-            # print(result["side"], result["price"], result["size"])
-            # print("")
+    
+    def getLastOrderState(self):
+        """
+        """
+        last_execution = self._executions[-1]
+        child_order_acceptance_id = last_execution["child_order_acceptance_id"]
+        params={
+            "product_code":self._product_code,
+            "child_order_acceptance_id":child_order_acceptance_id,
+        }
+        result = self._api.getchildorders(**params)
+        self.txt_log.append(result["child_order_date"] + " " + result["child_order_state"])
+    
+    def cancelAllOrders(self):
+        """cancelAllOrders(self) -> None
+        """
+        self._api.cancelallchildorders()
+
     
 ######################## GetDataProess functions ########################
     @footprint
@@ -1014,6 +1040,8 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot(object)
     def updateData(self, obj):
+        """updateData(self, obj) -> None
+        """
         mag = 20
         if obj is not None:
             try:
@@ -1021,6 +1049,7 @@ class OrderBoard(QMainWindow):
                 health = obj["health"]
                 self.health_info.setText(health["health"])
                 self.state_info.setText(health["state"])
+
                 # Board information
                 market_data = obj["market_data"]
                 if "timestamp" not in market_data.keys():
@@ -1034,18 +1063,24 @@ class OrderBoard(QMainWindow):
                     ltp_to_set = (ltp // mag + 1) * mag
                     self.txt_btcjpy.setText(str(ltp_to_set))
                 
-                # Balance information
-                balance = obj["balance"]
-                jpy_amount = 0
-                btc_amount = 0
-                for currency in balance:
-                    if currency["currency_code"] == "JPY":
-                        jpy_amount = currency["amount"]
-                    elif currency["currency_code"] == "BTC":
-                        btc_amount = currency["amount"]
-                self.jpy_value.setText(str(jpy_amount))
-                self.btc_value.setText(str("{0:.5f}".format(btc_amount)))
-                self.tot_value.setText(str(jpy_amount + int(btc_amount * market_data["ltp"])))
+                # # Balance information
+                # balance = obj["balance"]
+                # jpy_amount = 0
+                # btc_amount = 0
+                # for currency in balance:
+                #     if currency["currency_code"] == "JPY":
+                #         jpy_amount = currency["amount"]
+                #     elif currency["currency_code"] == "BTC":
+                #         btc_amount = currency["amount"]
+                # self.jpy_value.setText(str(jpy_amount))
+                # self.btc_value.setText(str("{0:.5f}".format(btc_amount)))
+                # self.tot_value.setText(str(jpy_amount + int(btc_amount * market_data["ltp"])))
+
+                # Collateral information
+                collateral = obj["collateral"]
+                self.jpy_value.setText(str(collateral["collateral"]))
+                self.btc_value.setText(str(collateral["open_position_pnl"]))
+                self.tot_value.setText(str(collateral["require_collateral"]))
                     
             except Exception as ex:
                 print(ex)
