@@ -217,11 +217,17 @@ class OrderBoard(QMainWindow):
         grid_boardinfo.addWidget(self.state_info, 1, 2, 1, 1)
         grid_boardinfo.addWidget(self.btn_start_ticker, 2, 2, 1, 1)
 
-        """ Bid / Ask setting """
+        """ Bid / Ask / Order """
         group_bidask, grid_bidask = \
             self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 30, 
-                                       "Start from", self._font_size_groupbox_title, 5)
+                                       "Order", self._font_size_groupbox_title, 5)
         
+        label_expected_current = self.__makeLabel(group_bidask, "Current: ", self._font_size_label, 
+                                                  isBold=self._font_bold_label, alignment=Qt.AlignRight)
+
+        self.expected_current = self.__makeLabel(group_bidask, "0", self._font_size_label, 
+                                                 isBold=self._font_bold_label, alignment=Qt.AlignLeft)
+
         self.btn_ask = self.__makePushButton(group_bidask, (self._init_window_width - 40)//2, 20, 
                                              "Ask", self._font_size_button, None, 
                                              color="#16A085")
@@ -234,9 +240,17 @@ class OrderBoard(QMainWindow):
         self.btn_bid.setCheckable(True)
         self.btn_bid.clicked.connect(self.updateOnBid)
 
+        self.btn_order = self.__makePushButton(group_bidask, (self._init_window_width - 50)//2, 20, 
+                                               "Order", self._font_size_button, self.order, 
+                                               color=self._init_button_color, isBold=True)
+        self.btn_order.setEnabled(False)
+
         # construct the layout
-        grid_bidask.addWidget(self.btn_ask, 0, 0)
-        grid_bidask.addWidget(self.btn_bid, 0, 1)
+        grid_bidask.addWidget(label_expected_current, 0, 0)
+        grid_bidask.addWidget(self.expected_current, 0, 1)
+        grid_bidask.addWidget(self.btn_ask, 1, 0)
+        grid_bidask.addWidget(self.btn_bid, 1, 1)
+        grid_bidask.addWidget(self.btn_order, 2, 0, 1, 2)
 
         """ Volume buttons """
         group_volume, grid_volume = \
@@ -329,7 +343,8 @@ class OrderBoard(QMainWindow):
         self.txt_stop.resize((self._init_window_width - 50)//3, 16)
         self.txt_stop.setStyleSheet("background-color:{};".format(self._txt_bgcolor))
         self.txt_stop.setValidator(QIntValidator())
-        self.txt_stop.textChanged.connect(self.updateExpectedStop)
+        # self.txt_stop.textChanged.connect(self.updateExpectedStop)
+        self.txt_stop.setReadOnly(True)
 
         label_stop_unit = self.__makeLabel(group_values, "yen", self._font_size_label, 
                                            isBold=self._font_bold_label, alignment=Qt.AlignLeft)
@@ -346,7 +361,8 @@ class OrderBoard(QMainWindow):
         self.txt_goal.resize((self._init_window_width - 50)//3, 16)
         self.txt_goal.setStyleSheet("background-color:{};".format(self._txt_bgcolor))
         self.txt_goal.setValidator(QIntValidator())
-        self.txt_goal.textChanged.connect(self.updateExpectedGoal)
+        # self.txt_goal.textChanged.connect(self.updateExpectedGoal)
+        self.txt_goal.setReadOnly(True)
 
         label_goal_unit = self.__makeLabel(group_values, "yen", self._font_size_label, 
                                            isBold=self._font_bold_label, alignment=Qt.AlignLeft)
@@ -369,39 +385,38 @@ class OrderBoard(QMainWindow):
         grid_values.addWidget(label_goal_unit, 3, 2)
         
         """ Expected values """
-        group_expected, grid_expected = \
-            self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 50, 
-                                       "Expected values", self._font_size_groupbox_title, 5)
+        # group_expected, grid_expected = \
+        #     self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 50, 
+        #                                "Expected values", self._font_size_groupbox_title, 5)
         
         # Expected current value
-        # label_expected_current = self.__makeLabel(group_expected, "Current: ", self._font_size_label, 
+        # label_expected_current = self.__makeLabel(group_expected, "Expected: ", self._font_size_label, 
         #                                           isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
-        self.expected_current = self.__makeLabel(group_expected, "0", self._font_size_label, 
-                                                 isBold=self._font_bold_label, alignment=Qt.AlignLeft)
+        # self.expected_current = self.__makeLabel(group_expected, "0", self._font_size_label, 
+        #                                          isBold=self._font_bold_label, alignment=Qt.AlignLeft)
 
         # Expected stop value
         # label_expected_stop = self.__makeLabel(group_expected, "Stop: ", self._font_size_label, 
         #                                        isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
-        self.expected_stop = self.__makeLabel(group_expected, "0", self._font_size_label, 
-                                              isBold=self._font_bold_label, alignment=Qt.AlignLeft)
+        # self.expected_stop = self.__makeLabel(group_expected, "0", self._font_size_label, 
+        #                                       isBold=self._font_bold_label, alignment=Qt.AlignLeft)
         
         # Expected goal value
         # label_expected_goal = self.__makeLabel(group_expected, "Goal: ", self._font_size_label, 
         #                                        isBold=self._font_bold_label, alignment=Qt.AlignRight)
         
-        self.expected_goal = self.__makeLabel(group_expected, "0", self._font_size_label, 
-                                              isBold=self._font_bold_label, alignment=Qt.AlignLeft)
+        # self.expected_goal = self.__makeLabel(group_expected, "0", self._font_size_label, 
+        #                                       isBold=self._font_bold_label, alignment=Qt.AlignLeft)
         
         # construct the layout
         # grid_expected.addWidget(label_expected_current, 0, 0)
-        grid_expected.addWidget(self.expected_current, 0, 0)
+        # grid_expected.addWidget(self.expected_current, 0, 0)
         # grid_expected.addWidget(label_expected_stop, 1, 0)
-        grid_expected.addWidget(self.expected_stop, 1, 0)
+        # grid_expected.addWidget(self.expected_stop, 1, 0)
         # grid_expected.addWidget(label_expected_goal, 2, 0)
-        grid_expected.addWidget(self.expected_goal, 2, 0)
-
+        # grid_expected.addWidget(self.expected_goal, 2, 0)
 
         """ Order/Execution """
         group_order, grid_order = \
@@ -409,10 +424,10 @@ class OrderBoard(QMainWindow):
                                        "Order/Get Exec", self._font_size_groupbox_title, 5)
 
         # Order button
-        self.btn_order = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
-                                               "Order", self._font_size_button, self.order, 
-                                               color=self._init_button_color, isBold=True)
-        self.btn_order.setEnabled(False)
+        # self.btn_order = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
+        #                                        "Order", self._font_size_button, self.order, 
+        #                                        color=self._init_button_color, isBold=True)
+        # self.btn_order.setEnabled(False)
 
         # Get last execution button
         self.btn_get_ex = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
@@ -441,19 +456,19 @@ class OrderBoard(QMainWindow):
         self.txt_log.setReadOnly(True)
         
         # construct the layout
-        grid_order.addWidget(self.btn_order, 0, 0)
-        grid_order.addWidget(self.btn_get_ex, 0, 1)
-        grid_order.addWidget(self.btn_get_los, 1, 0)
-        grid_order.addWidget(self.btn_cancel_all, 1, 1)
-        grid_order.addWidget(self.txt_log, 2, 0, 1, 2)
+        # grid_order.addWidget(self.btn_order, 0, 0)
+        grid_order.addWidget(self.btn_get_ex, 0, 0)
+        grid_order.addWidget(self.btn_get_los, 0, 1)
+        grid_order.addWidget(self.btn_cancel_all, 0, 2)
+        grid_order.addWidget(self.txt_log, 1, 0, 1, 3)
 
         """ add all the widget """
         self.grid.addWidget(group_bankinfo, 0, 0, 1, 1)
         self.grid.addWidget(group_boardinfo, 0, 1, 1, 3)
         self.grid.addWidget(group_volume, 1, 0, 1, 4)
-        self.grid.addWidget(group_expected, 2, 0, 1, 1)
-        self.grid.addWidget(group_values, 2, 1, 1, 3)
-        self.grid.addWidget(group_bidask, 3, 0, 1, 4)
+        # self.grid.addWidget(group_expected, 2, 0, 1, 1)
+        self.grid.addWidget(group_values, 2, 0, 1, 3)
+        self.grid.addWidget(group_bidask, 2, 3, 1, 1)
         self.grid.addWidget(group_order, 4, 0, 1, 4)
 
         self.main_widget.setFocus()
@@ -612,6 +627,7 @@ class OrderBoard(QMainWindow):
         else:
             self.btn_start_ticker.setEnabled(False)
             self.stopTimer = True
+        self.checkValidationOfOrder()
 
     @footprint
     @pyqtSlot()
@@ -643,8 +659,8 @@ class OrderBoard(QMainWindow):
         """
         self.btn_bid.setChecked(False)
         self.checkValidationOfOrder()
-        self.updateExpectedStop()
-        self.updateExpectedGoal()
+        # self.updateExpectedStop()
+        # self.updateExpectedGoal()
     
     @footprint
     @pyqtSlot()
@@ -654,8 +670,8 @@ class OrderBoard(QMainWindow):
         """
         self.btn_ask.setChecked(False)
         self.checkValidationOfOrder()
-        self.updateExpectedStop()
-        self.updateExpectedGoal()
+        # self.updateExpectedStop()
+        # self.updateExpectedGoal()
     
     @footprint
     @pyqtSlot()
@@ -664,6 +680,8 @@ class OrderBoard(QMainWindow):
         check validation of the order
         """
         if not self.btn_ask.isChecked() and not self.btn_bid.isChecked():
+            self.btn_order.setEnabled(False)
+        elif not self._timer_getData.isActive():
             self.btn_order.setEnabled(False)
         else:
             self.btn_order.setEnabled(True)
@@ -725,8 +743,8 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def updateExpectedValues(self):
         self.updateExpectedCurrent()
-        self.updateExpectedGoal()
-        self.updateExpectedStop()
+        # self.updateExpectedGoal()
+        # self.updateExpectedStop()
     
     @footprint
     @pyqtSlot()
@@ -1095,6 +1113,7 @@ class OrderBoard(QMainWindow):
             self.stopTimer = False
             self.btn_start_ticker.setEnabled(True)
             self.btn_start_ticker.setText("Start")
+            self.checkValidationOfOrder()
 
 ######################## Closing processes ########################
     @footprint
