@@ -9,13 +9,14 @@ import glob
 import pybitflyer
 
 from PyQt5.QtWidgets import QMainWindow, QGridLayout, QMenu, QWidget, QLabel, QLineEdit, QTextEdit
-from PyQt5.QtWidgets import QCheckBox, qApp
+from PyQt5.QtWidgets import QCheckBox, QApplication, QTableWidget, QTableWidgetItem
 from PyQt5.QtGui import QIcon, QPalette, QColor, QPixmap
 from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QPushButton, QMessageBox, QGroupBox, QDialog, QVBoxLayout, QHBoxLayout
 from PyQt5.QtWidgets import QStyle
 from PyQt5.QtCore import pyqtSlot, QThread, QTimer, Qt, QMutex
-from pyqtgraph.Qt import QtGui, QtCore
+from PyQt5 import  QtGui, QtCore
+# from pyqtgraph.Qt import QtGui, QtCore
 
 # import pyqtgraph as pg
 
@@ -34,8 +35,8 @@ class OrderBoard(QMainWindow):
         self.initGui()
         # For QPushButton on QMassageBox
         str_ = "background-color:{0};".format(self._init_button_color)
-        qApp.setStyleSheet("QMessageBox::QPushButton{" + str_ + "}")
-        qApp.setStyleSheet("QMessageBox::QPushButton{" + str_ + "}")
+        # qApp.setStyleSheet("QMessageBox::QPushButton{" + str_ + "}")
+        # qApp.setStyleSheet("QMessageBox::QPushButton{" + str_ + "}")
         self.initGetDataProcess()
     
     @footprint
@@ -113,6 +114,9 @@ class OrderBoard(QMainWindow):
         self._executions = []
         self._contracts = []
         self._execution_count = 0
+        self._last_exec = dict()
+        self._last_order = dict()
+        self._order_interst = dict()
 
 ######################## Construction of GUI ########################
     @footprint
@@ -228,19 +232,19 @@ class OrderBoard(QMainWindow):
         self.expected_current = self.__makeLabel(group_bidask, "0", self._font_size_label, 
                                                  isBold=self._font_bold_label, alignment=Qt.AlignLeft)
 
-        self.btn_ask = self.__makePushButton(group_bidask, (self._init_window_width - 40)//2, 20, 
+        self.btn_ask = self.__makePushButton(group_bidask, (self._init_window_width - 40)//6, 20, 
                                              "Ask", self._font_size_button, None, 
                                              color="#16A085")
         self.btn_ask.setCheckable(True)
         self.btn_ask.clicked.connect(self.updateOnAsk)
         
-        self.btn_bid = self.__makePushButton(group_bidask, (self._init_window_width - 40)//2, 20, 
+        self.btn_bid = self.__makePushButton(group_bidask, (self._init_window_width - 40)//6, 20, 
                                              "Bid", self._font_size_button, None, 
                                              color="#EC7063")
         self.btn_bid.setCheckable(True)
         self.btn_bid.clicked.connect(self.updateOnBid)
 
-        self.btn_order = self.__makePushButton(group_bidask, (self._init_window_width - 50)//2, 20, 
+        self.btn_order = self.__makePushButton(group_bidask, (self._init_window_width - 50)//3, 20, 
                                                "Order", self._font_size_button, self.order, 
                                                color=self._init_button_color, isBold=True)
         self.btn_order.setEnabled(False)
@@ -418,49 +422,71 @@ class OrderBoard(QMainWindow):
         # grid_expected.addWidget(label_expected_goal, 2, 0)
         # grid_expected.addWidget(self.expected_goal, 2, 0)
 
-        """ Order/Execution """
-        group_order, grid_order = \
+        """ Current State Control """
+        group_current, grid_current = \
             self.__makeGroupboxAndGrid(self, self._init_window_width - 20, 100, 
-                                       "Order/Get Exec", self._font_size_groupbox_title, 5)
-
+                                       "Current State Control", self._font_size_groupbox_title, 5)
+        
         # Order button
-        # self.btn_order = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
+        # self.btn_order = self.__makePushButton(group_current, (self._init_window_width - 50)//2, 20, 
         #                                        "Order", self._font_size_button, self.order, 
         #                                        color=self._init_button_color, isBold=True)
         # self.btn_order.setEnabled(False)
 
         # Get last execution button
-        self.btn_get_ex = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
+        self.btn_get_ex = self.__makePushButton(group_current, (self._init_window_width - 50)//4, 20, 
                                                  "Exec", self._font_size_button, self.getLastExecution, 
                                                  color=self._init_button_color, isBold=True)
         
         # Get last order state button
-        self.btn_get_los = self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
+        self.btn_get_los = self.__makePushButton(group_current, (self._init_window_width - 50)//4, 20, 
                                                  "Last Order", self._font_size_button, self.getLastOrderState, 
                                                  color=self._init_button_color, isBold=True)
         
+        # Get order interest button
+        self.btn_get_interest = \
+            self.__makePushButton(group_current, (self._init_window_width - 50)//4, 20, 
+                                  "Interest", self._font_size_button, self.getOrderInterest, 
+                                  color=self._init_button_color, isBold=True)
+        
         # cancel all order button
         self.btn_cancel_all = \
-            self.__makePushButton(group_order, (self._init_window_width - 50)//2, 20, 
+            self.__makePushButton(group_current, (self._init_window_width - 50)//4, 20, 
                                   "Cancel", self._font_size_button, self.cancelAllOrders, 
                                   color=self._init_button_color, isBold=True)
+        
+        # construct the layout
+        # grid_current.addWidget(self.btn_order, 0, 0)
+        grid_current.addWidget(self.btn_get_ex, 0, 0)
+        grid_current.addWidget(self.btn_get_los, 0, 1)
+        grid_current.addWidget(self.btn_get_interest, 0, 2)
+        grid_current.addWidget(self.btn_cancel_all, 0, 3)
 
+        """ Current state """
+        self.current_table_header = ["Key", "Interest", "Exec", "LastOrder"]
+        self.current_table_key = ["date", "side", "size", "price", "state"]
+        self.current_table = QTableWidget(self)
+        self.current_table.setColumnCount(len(self.current_table_header))
+        self.current_table.setRowCount(len(self.current_table_key))
+        font = self.current_table.font()
+        # font.setPointSize(self._font_size_label)
+        font.setBold(True)
+        self.current_table.setFont(font)
+        self.current_table.setStyleSheet("background-color:{};".format("white"))
+        self.current_table.setHorizontalHeaderLabels(self.current_table_header)
+        self.current_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.current_table.setFixedSize(self._init_window_width - 20, 180)
+
+        """ Log """
         # Order/Execution Log
-        self.txt_log = QTextEdit(group_order)
+        self.txt_log = QTextEdit(group_current)
         self.txt_log.setText("Log is shown here.")
         font = self.txt_log.font()
         font.setPointSize(self._font_size_button)
         self.txt_log.setFont(font)
-        self.txt_log.resize(self._init_window_width - 20, 50)
+        self.txt_log.resize(self._init_window_width - 20, 30)
         self.txt_log.setStyleSheet("background-color:{};".format("white"))
         self.txt_log.setReadOnly(True)
-        
-        # construct the layout
-        # grid_order.addWidget(self.btn_order, 0, 0)
-        grid_order.addWidget(self.btn_get_ex, 0, 0)
-        grid_order.addWidget(self.btn_get_los, 0, 1)
-        grid_order.addWidget(self.btn_cancel_all, 0, 2)
-        grid_order.addWidget(self.txt_log, 1, 0, 1, 3)
 
         """ add all the widget """
         self.grid.addWidget(group_bankinfo, 0, 0, 1, 1)
@@ -469,7 +495,9 @@ class OrderBoard(QMainWindow):
         # self.grid.addWidget(group_expected, 2, 0, 1, 1)
         self.grid.addWidget(group_values, 2, 0, 1, 3)
         self.grid.addWidget(group_bidask, 2, 3, 1, 1)
-        self.grid.addWidget(group_order, 4, 0, 1, 4)
+        self.grid.addWidget(group_current, 4, 0, 1, 4)
+        self.grid.addWidget(self.current_table, 5, 0, 2, 4)
+        self.grid.addWidget(self.txt_log, 7, 0, 1, 4)
 
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
@@ -954,6 +982,7 @@ class OrderBoard(QMainWindow):
             
             self._executions.append(
                 dict(
+                    date=datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
                     param=params, 
                     child_order_acceptance_id=child_order_acceptance_id
                 )
@@ -981,6 +1010,8 @@ class OrderBoard(QMainWindow):
     
     @footprint
     def saveLastExecution(self):
+        """saveLastExecution(self) -> None
+        """
         if len(self._executions) <= 0:
             return
         tmpfldr = os.path.join(os.path.dirname(__file__), "tmp")
@@ -996,32 +1027,129 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def getLastExecution(self):
-        """
+        """getLastExecution(self) -> None
         """
         count = 1
-        results = self._api.getexecutions(product_code=self._product_code, count=count)
-        for ii in range(len(results)):
-            result = results[-ii-1]
-            result_str = "{0} {1} {2} {3}".\
-                format(result["exec_date"], result["side"], result["price"], result["size"])
-            self.txt_log.append(result_str)
+        result = self._api.getexecutions(product_code=self._product_code, count=count)[0]
+        if not isinstance(result, dict):
+            self.txt_log.append("{}: No executions.".\
+                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+            return
+        if "exec_date" not in result.keys():
+            self.txt_log.append("{}: No executions.".\
+                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+            return
+        try:
+            for key in self.current_table_key:
+                if key == "date":
+                    self._last_exec[key] = result["exec_date"].split("T")[-1][:8]
+                elif key == "state":
+                    self._last_exec[key] = result["commission"]
+                else:
+                    self._last_exec[key] = result[key]
+            self.updateStateTable()
+        except KeyError as ex:
+            self.txt_log.append(ex)
+            # result = results[-ii-1]
+            # result_str = "{0} {1} {2} {3}".\
+            #     format(result["exec_datepe"], result["side"], result["price"], result["size"])
+            # self.txt_log.append(result_str)
     
+    @footprint
+    @pyqtSlot()
     def getLastOrderState(self):
+        """getLastOrderState(self) -> None
         """
-        """
-        last_execution = self._executions[-1]
-        child_order_acceptance_id = last_execution["child_order_acceptance_id"]
-        params={
-            "product_code":self._product_code,
-            "child_order_acceptance_id":child_order_acceptance_id,
-        }
-        result = self._api.getchildorders(**params)
-        self.txt_log.append(result["child_order_date"] + " " + result["child_order_state"])
+        if len(self._executions) > 0:
+            last_execution = self._executions[-1]
+            child_order_acceptance_id = last_execution["child_order_acceptance_id"]
+            params={
+                "product_code":self._product_code,
+                "child_order_acceptance_id":child_order_acceptance_id,
+            }
+            result = self._api.getchildorders(**params)
+            print(result)
+
+            if not isinstance(result, dict):
+                self.txt_log.append("{}: No order with id {}.".\
+                                    format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
+                                           child_order_acceptance_id))
+                return
+            if not "child_order_date" in result.keys():
+                self.txt_log.append("{}: No order with id {}.".\
+                                    format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
+                                           child_order_acceptance_id))
+                return
+            try:
+                for key in self.current_table_key:
+                    if key == "date":
+                        self._last_order[key] = result["child_order_date"].split("T")[-1][:8]
+                    elif key == "state":
+                        self._last_order[key] = result["child_order_state"]
+                    else:
+                        self._last_order[key] = result[key]
+                self.updateStateTable()
+            except KeyError as ex:
+                self.txt_log.append(ex)
+            # self.txt_log.append(result["child_order_date"] + " " + result["child_order_state"])
+        else:
+            self.txt_log.append("{}: No executions.".\
+                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
     
+    @footprint
+    @pyqtSlot()
+    def getOrderInterest(self):
+        """getOrderInterest(self) -> None
+        """
+        result = self._api.getpositions(product_code=self._product_code)
+        if not isinstance(result, dict):
+            self.txt_log.append("{}: No order interests.".\
+                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+            return
+        if not "open_date" in result.keys():
+            self.txt_log.append("{}: No order interests.".\
+                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+            return
+        try:
+            for key in self.current_table_key:
+                if key == "date":
+                    self._order_interst[key] = result["open_date"].split("T")[-1][:8]
+                elif key == "state":
+                    self._order_interst[key] = result["leverage"]
+                else:
+                    self._order_interst[key] = result[key]
+            self.updateStateTable()
+        except KeyError as ex:
+            self.txt_log.append(ex)
+    
+    @footprint
+    def updateStateTable(self):
+        """updateStateTable(self) -> None
+        TODO: to change the widget from QTableWidget to QTableView
+        """
+        try:
+            print(self._last_exec)
+            for ii, key in enumerate(self.current_table_key):
+                lex = "" if self._last_exec.get(key) is None else self._last_exec.get(key)
+                los = "" if self._last_order.get(key) is None else self._last_order.get(key)
+                loi = "" if self._order_interst.get(key) is None else self._order_interst.get(key)
+                col = [lex, los, loi]
+                self.current_table.setItem(ii, 0, QTableWidgetItem(key))
+                for jj in range(len(col)):
+                    print(QTableWidgetItem(col[jj]))
+                    self.current_table.setItem(ii, jj + 1, QTableWidgetItem(str(col[jj])))
+        except Exception as ex:
+            self.txt_log.append(ex)
+            
+    
+    @footprint
+    @pyqtSlot()
     def cancelAllOrders(self):
         """cancelAllOrders(self) -> None
         """
         self._api.cancelallchildorders()
+        self.txt_log.append("{}: All the order were cancelled.".\
+                            format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
 
     
 ######################## GetDataProess functions ########################
@@ -1163,7 +1291,7 @@ class OrderBoard(QMainWindow):
                     os.remove(fpath)
 
 def main():
-    app = QtGui.QApplication([])
+    app = QApplication([])
     mw = OrderBoard()
     mw.show()
     app.exec_()
