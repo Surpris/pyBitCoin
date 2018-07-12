@@ -85,8 +85,20 @@ class OrderBoard(QMainWindow):
         self._api = pybitflyer.API(api_key=self._api_key, api_secret=self._api_secret)
         try:
             endpoint = "/v1/markets"
-            _ = self._api.request(endpoint)
-            print(_)
+            currencies = self._api.request(endpoint)
+            if isinstance(currencies, list):
+                print("Currency:")
+                print([currency["product_code"] for currency in currencies])
+            else:
+                print("No available currencies.")
+            
+            endpoint = "/v1/me/getpermissions"
+            permissions = self._api.request(endpoint)
+            if isinstance(permissions, list):
+                print("Permitted API:")
+                print(permissions)
+            else:
+                print("No permitted APIs.")
         except Exception as ex:
             print(ex)
         
@@ -102,8 +114,9 @@ class OrderBoard(QMainWindow):
         # if os.path.exists(filepath):
         #     self.loadConfigGetData(filepath)
 
-        """ Parameters for emulation """
+        """ Some other parameters """
         self.__DEBUG = False
+        # self.__log_level = "None"
     
     @footprint
     @pyqtSlot()
@@ -1067,8 +1080,7 @@ class OrderBoard(QMainWindow):
                 "product_code":self._product_code,
                 "child_order_acceptance_id":child_order_acceptance_id,
             }
-            result = self._api.getchildorders(**params)
-            print(result)
+            result = self._api.getchildorders(**params)[0]
 
             if not isinstance(result, dict):
                 self.txt_log.append("{}: No order with id {}.".\
@@ -1101,7 +1113,7 @@ class OrderBoard(QMainWindow):
     def getOrderInterest(self):
         """getOrderInterest(self) -> None
         """
-        result = self._api.getpositions(product_code=self._product_code)
+        result = self._api.getpositions(product_code=self._product_code)[0]
         if not isinstance(result, dict):
             self.txt_log.append("{}: No order interests.".\
                                 format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
@@ -1128,15 +1140,13 @@ class OrderBoard(QMainWindow):
         TODO: to change the widget from QTableWidget to QTableView
         """
         try:
-            print(self._last_exec)
             for ii, key in enumerate(self.current_table_key):
                 lex = "" if self._last_exec.get(key) is None else self._last_exec.get(key)
                 los = "" if self._last_order.get(key) is None else self._last_order.get(key)
                 loi = "" if self._order_interst.get(key) is None else self._order_interst.get(key)
-                col = [lex, los, loi]
+                col = [loi, lex, los]
                 self.current_table.setItem(ii, 0, QTableWidgetItem(key))
                 for jj in range(len(col)):
-                    print(QTableWidgetItem(col[jj]))
                     self.current_table.setItem(ii, jj + 1, QTableWidgetItem(str(col[jj])))
         except Exception as ex:
             self.txt_log.append(ex)
