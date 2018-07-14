@@ -16,21 +16,23 @@ from PyQt5.QtWidgets import QPushButton, QMessageBox, QGroupBox, QDialog, QVBoxL
 from PyQt5.QtWidgets import QStyle, QGraphicsView
 from PyQt5.QtCore import pyqtSlot, QThread, QTimer, Qt, QMutex
 from PyQt5 import  QtGui, QtCore
-# from pyqtgraph.Qt import QtGui, QtCore
-
-# import pyqtgraph as pg
 
 from utils import footprint
 from utils import make_groupbox_and_grid, make_label, make_pushbutton
 from Worker import GetTickerWorker
 
 class OrderBoard(QMainWindow):
-    """OrderBoard class
+    """OrderBoard class (subclass of QMainWindow)
     """
     
     def __init__(self):
+        """__init__(self)
+        initialize the whole of this class.
+        """
         super().__init__()
         self.initInnerParameters()
+        self.initAPI()
+        self.initData()
         self.initGui()
         # For QPushButton on QMassageBox
         str_ = "background-color:{0};".format(self._button_bg_color)
@@ -39,13 +41,12 @@ class OrderBoard(QMainWindow):
     @footprint
     def initInnerParameters(self):
         """initInnerParameters(self) -> None
-        Initialize the inner parameters.
+        initialize the inner parameters.
         """
 
         """ Parameters for the GUI """
         self._mutex = QMutex()
         # self._windows = []
-        self.initData()
 
         self._window_width = 360 # [pixel]
         self._window_height = 675 # [pixel]
@@ -80,38 +81,7 @@ class OrderBoard(QMainWindow):
         # for API
         self._product_code = "FX_BTC_JPY"
         self._api_dir = ".prv"
-        if os.name == "nt":
-            fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], self._api_dir, "*"))[0]
-        else:
-            fpath = glob.glob(os.path.join(os.environ["HOME"], self._api_dir, "*"))[0]
 
-        with open(fpath, "r", encoding="utf-8") as ff:
-            try:
-                self._api_key = ff.readline().strip()
-                self._api_secret = ff.readline().strip()
-            except Exception as ex:
-                print(ex)
-        
-        self._api = pybitflyer.API(api_key=self._api_key, api_secret=self._api_secret)
-        try:
-            endpoint = "/v1/markets"
-            currencies = self._api.request(endpoint)
-            if isinstance(currencies, list):
-                print("Currency:")
-                print([currency["product_code"] for currency in currencies])
-            else:
-                print("No available currencies.")
-            
-            endpoint = "/v1/me/getpermissions"
-            permissions = self._api.request(endpoint)
-            if isinstance(permissions, list):
-                print("Permitted API:")
-                print(permissions)
-            else:
-                print("No permitted APIs.")
-        except Exception as ex:
-            print(ex)
-        
         # for setting BTCJPY
         self._magnitude = 20
         self._default_value = "0"
@@ -122,18 +92,60 @@ class OrderBoard(QMainWindow):
         self._order_type = "child"
         self._order_condition = "MARKET"
 
-        # if os.path.exists(os.path.join(os.path.dirname(__file__), "config.json")):
-        #     self.loadConfig()
-
         """ Some other parameters """
         self.__DEBUG = False
         # self.__log_level = "None"
+
+        # """ Load configuration from the setting file """
+        # if os.path.exists(os.path.join(os.path.dirname(__file__), "config.json")):
+        #     self.loadConfig()
+
+    @footprint
+    def initAPI(self):
+        """self.initData() -> None
+        initialize the API of pybitflyer.
+        """
+        if os.name == "nt":
+            fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], self._api_dir, "*"))[0]
+        else:
+            fpath = glob.glob(os.path.join(os.environ["HOME"], self._api_dir, "*"))[0]
+
+        # raise the exception unless both an API key and an API secret key are not loaded.
+        with open(fpath, "r", encoding="utf-8") as ff:
+            try:
+                self._api_key = ff.readline().strip()
+                self._api_secret = ff.readline().strip()
+            except Exception as ex:
+                raise Exception(ex)
+        
+        self._api = pybitflyer.API(api_key=self._api_key, api_secret=self._api_secret)
+        self.__API_ERROR = False
+        try:
+            endpoint = "/v1/markets"
+            currencies = self._api.request(endpoint)
+            if isinstance(currencies, list):
+                print("Currency:")
+                print([currency["product_code"] for currency in currencies])
+            else:
+                print("No available currencies.")
+                self.__API_ERROR = True
+            
+            endpoint = "/v1/me/getpermissions"
+            permissions = self._api.request(endpoint)
+            if isinstance(permissions, list):
+                print("Permitted API:")
+                print(permissions)
+            else:
+                print("No permitted APIs.")
+                self.__API_ERROR = True
+        except Exception as ex:
+            print(ex)
+            self.__API_ERROR = True
     
     @footprint
-    @pyqtSlot()
     def initData(self):
         """ initData(self) -> None
-        Initialize inner data.
+        initialize inner data.
         """
         self._executions = []
         self._contracts = []
@@ -146,7 +158,7 @@ class OrderBoard(QMainWindow):
     @footprint
     def initMainWidget(self):
         """ initMainWidget(self) -> None
-        Initialize the main widget and the grid.
+        initialize the main widget and its grid.
         """
         self.main_widget = QWidget(self)
         self.setStyleSheet("background-color:{};".format(self._window_color))
@@ -157,7 +169,7 @@ class OrderBoard(QMainWindow):
     @footprint
     def initGui(self):
         """initGui(self) -> None
-        Initialize the GUI.
+        initialize the GUI.
         """
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.initMainWidget()
@@ -709,6 +721,8 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def updateExpectedValues(self):
+        """updateExpectedValues(self) -> None
+        """
         self.updateExpectedCurrent()
         # self.updateExpectedGoal()
         # self.updateExpectedStop()
@@ -716,6 +730,8 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def updateExpectedCurrent(self):
+        """updateExpectedCurrent(self) -> None
+        """
         if self.txt_btcjpy.text() == "":
             self.txt_btcjpy.setText(self._default_value)
         btc = float(self.txt_btc.text())
@@ -725,6 +741,8 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def updateExpectedStop(self):
+        """updateExpectedStop(self) -> None
+        """
         btc = float(self.txt_btc.text())
         btcjpy = float(self.txt_btcjpy.text())
         if self.txt_stop.text() == "":
@@ -741,6 +759,8 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def updateExpectedGoal(self):
+        """updateExpectedGoal(self) -> None
+        """
         btc = float(self.txt_btc.text())
         btcjpy = float(self.txt_btcjpy.text())
         if self.txt_goal.text() == "":
@@ -758,6 +778,7 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def order(self):
         """order(self) -> None
+        wrapper function to send an order based on the setting of order.
         """
         if self._order_type == "ifdoco":
             self._sendIfdocoOrder()
@@ -845,29 +866,24 @@ class OrderBoard(QMainWindow):
             )
             self.saveLastExecution()
         except Exception as ex:
-            print("@ saving an order:", ex)
+            self.txt_log.append("@ saving an order:", ex)
         
         try:
             self.txt_log.append("order id: " + message)
-            # self.txt_log.scrollToAnchor()
         except Exception as ex:
-            print("@ logging:", ex)
+            self.txt_log.append("@ logging:", ex)
     
     @footprint
     def _sendChildOrder(self):
         """_sendChildOrder(self) -> None
-        send an IFDOCO order.
+        send an order.
         """
         # get size and prices
         btcjpy = int(self.txt_btcjpy.text())
         btc = float(self.txt_btc.text())
         if self.btn_ask.isChecked():
-            # stop = btcjpy - int(self.txt_stop.text())
-            # goal = btcjpy + int(self.txt_goal.text())
             side = "BUY"
         else:
-            # stop = btcjpy + int(self.txt_stop.text())
-            # goal = btcjpy - int(self.txt_goal.text())
             side = "SELL"
         
         # Order setting
@@ -881,24 +897,6 @@ class OrderBoard(QMainWindow):
         }
         if self._order_condition == "LIMIT":
             params["price"] = btcjpy
-
-        # ## OCO1: stop
-        # params_oco1 = {
-        #     "product_code":self._product_code,
-        #     "child_order_type":"STOP",
-        #     "side":side_oco,
-        #     "trigger_price":stop,
-        #     "size":btc
-        # }
-
-        # ## OCO2: goal
-        # params_oco2 = {
-        #     "product_code":self._product_code,
-        #     "child_order_type":"STOP",
-        #     "side":side_oco,
-        #     "trigger_price":goal,
-        #     "size":btc
-        # }
 
         try:
             if self.__DEBUG:
@@ -934,7 +932,6 @@ class OrderBoard(QMainWindow):
         
         try:
             self.txt_log.append("order id: " + message)
-            # self.txt_log.scrollToAnchor()
         except Exception as ex:
             self.txt_log.append("@ logging:", ex)
     
@@ -1180,6 +1177,8 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def startGettingDataThread(self):
+        """startGettingDataThread(self) -> None
+        """
         if not self._thread_getData.isRunning():
             print("start thread by timer.")
             self._thread_getData.start()
@@ -1238,6 +1237,8 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def checkIsTimerStopped(self):
+        """checkIsTimerStopped(self) -> None
+        """
         if self.stopTimer:
             self._timer_getData.stop()
             # print("timer stopped.")
@@ -1249,6 +1250,10 @@ class OrderBoard(QMainWindow):
 ######################## Closing processes ########################
     @footprint
     def closeEvent(self, event):
+        """closeEvent(self, event) -> None
+        (override function)
+        process on closing the main widget
+        """
         if self._thread_getData.isRunning():
             string = "Some threads are still running.\n"
             string += "Please wait for their finishing."
@@ -1281,11 +1286,16 @@ class OrderBoard(QMainWindow):
 
     @footprint
     def stopAllTimers(self):
+        """stopAllTimers(self) -> None
+        """
         if self._timer_getData.isActive():
             self._timer_getData.stop()
     
     @footprint
     def deleteTempExecutions(self):
+        """deleteTempExecutions(self) -> None
+        delete files including each temporary execution
+        """
         if not self.__DEBUG:
             tmpfldr = os.path.join(os.path.dirname(__file__), "tmp")
             if os.path.exists(tmpfldr):
