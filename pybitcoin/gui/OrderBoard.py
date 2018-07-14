@@ -108,6 +108,7 @@ class OrderBoard(QMainWindow):
         # order type
         # self._order_type = "ifdoco"
         self._order_type = "child"
+        self._order_condition = "MARKET"
 
         # if os.path.exists(os.path.join(os.path.dirname(__file__), "config.json")):
         #     self.loadConfig()
@@ -948,13 +949,14 @@ class OrderBoard(QMainWindow):
         ## Child
         params = {
             "product_code":self._product_code,
-            "child_order_type":"LIMIT",
+            "child_order_type":self._order_condition,
             "side":side,
-            "price":btcjpy,
             "size":btc,
             "minute_to_expire":10
         }
-        
+        if self._order_condition == "LIMIT":
+            params["price"] = btcjpy
+
         # ## OCO1: stop
         # params_oco1 = {
         #     "product_code":self._product_code,
@@ -1043,15 +1045,27 @@ class OrderBoard(QMainWindow):
         """getLastExecution(self) -> None
         """
         count = 1
-        result = self._api.getexecutions(product_code=self._product_code, count=count)[0]
-        if not isinstance(result, dict):
-            self.txt_log.append("{}: No executions.".\
-                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+        try:
+            results = self._api.getexecutions(product_code=self._product_code, count=count)
+            if len(results) <= 0:
+                self.txt_log.append("{}: No executions.".\
+                                    format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+                return
+            
+            result = results[0]
+            if not isinstance(result, dict):
+                self.txt_log.append("{}: result has an unacceptable type = '{}'.".\
+                                    format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"), 
+                                        type(result)))
+                return
+            if "exec_date" not in result.keys():
+                self.txt_log.append("{}: No executions.".\
+                                    format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+                return
+        except Exception as ex:
+            self.txt_log.append(ex)
             return
-        if "exec_date" not in result.keys():
-            self.txt_log.append("{}: No executions.".\
-                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
-            return
+        
         try:
             for key in self.current_table_key:
                 if key == "date":
@@ -1063,65 +1077,86 @@ class OrderBoard(QMainWindow):
             self.updateStateTable()
         except KeyError as ex:
             self.txt_log.append(ex)
-            # result = results[-ii-1]
-            # result_str = "{0} {1} {2} {3}".\
-            #     format(result["exec_datepe"], result["side"], result["price"], result["size"])
-            # self.txt_log.append(result_str)
+            return
     
     @footprint
     @pyqtSlot()
     def getLastOrderState(self):
         """getLastOrderState(self) -> None
         """
-        if len(self._executions) > 0:
+        if len(self._executions) <= 0:
+            self.txt_log.append("{}: No executions.".\
+                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+            return
+        
+        try:
             last_execution = self._executions[-1]
             child_order_acceptance_id = last_execution["child_order_acceptance_id"]
             params={
                 "product_code":self._product_code,
                 "child_order_acceptance_id":child_order_acceptance_id,
             }
-            result = self._api.getchildorders(**params)[0]
-
-            if not isinstance(result, dict):
+            results = self._api.getchildorders(**params)
+            if len(results) <= 0:
                 self.txt_log.append("{}: No order with id {}.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
                                            child_order_acceptance_id))
+                return
+            
+            result = results[0]
+            if not isinstance(result, dict):
+                self.txt_log.append("{}: result from id {} has an unacceptable type = '{}'.".\
+                                    format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
+                                           child_order_acceptance_id, 
+                                           type(result)))
                 return
             if not "child_order_date" in result.keys():
                 self.txt_log.append("{}: No order with id {}.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
                                            child_order_acceptance_id))
                 return
-            try:
-                for key in self.current_table_key:
-                    if key == "date":
-                        self._last_order[key] = result["child_order_date"].split("T")[-1][:8]
-                    elif key == "state":
-                        self._last_order[key] = result["child_order_state"]
-                    else:
-                        self._last_order[key] = result[key]
-                self.updateStateTable()
-            except KeyError as ex:
-                self.txt_log.append(ex)
-            # self.txt_log.append(result["child_order_date"] + " " + result["child_order_state"])
-        else:
-            self.txt_log.append("{}: No executions.".\
-                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+        except Exception as ex:
+            self.txt_log.append(ex)
+            return
+        try:
+            for key in self.current_table_key:
+                if key == "date":
+                    self._last_order[key] = result["child_order_date"].split("T")[-1][:8]
+                elif key == "state":
+                    self._last_order[key] = result["child_order_state"]
+                else:
+                    self._last_order[key] = result[key]
+            self.updateStateTable()
+        except KeyError as ex:
+            self.txt_log.append(ex)
+            return
     
     @footprint
     @pyqtSlot()
     def getOrderInterest(self):
         """getOrderInterest(self) -> None
         """
-        result = self._api.getpositions(product_code=self._product_code)[0]
-        if not isinstance(result, dict):
-            self.txt_log.append("{}: No order interests.".\
-                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+        try:
+            results = self._api.getpositions(product_code=self._product_code)
+            if len(results) <= 0:
+                self.txt_log.append("{}: No order interests.".\
+                                    format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+                return
+            
+            result = results[0]
+            if not isinstance(result, dict):
+                self.txt_log.append("{}: result has an unacceptable type = '{}'.".\
+                                    format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"), 
+                                        type(result)))
+                return
+            if not "open_date" in result.keys():
+                self.txt_log.append("{}: No order interests.".\
+                                    format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
+                return
+        except Exception as ex:
+            self.txt_log.append(ex)
             return
-        if not "open_date" in result.keys():
-            self.txt_log.append("{}: No order interests.".\
-                                format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
-            return
+        
         try:
             for key in self.current_table_key:
                 if key == "date":
@@ -1133,6 +1168,7 @@ class OrderBoard(QMainWindow):
             self.updateStateTable()
         except KeyError as ex:
             self.txt_log.append(ex)
+            return
     
     @footprint
     def updateStateTable(self):
