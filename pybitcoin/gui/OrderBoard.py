@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import QCheckBox, QApplication, QTableWidget, QTableWidgetI
 from PyQt5.QtGui import QIcon, QPalette, QColor, QPixmap
 from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QPushButton, QMessageBox, QGroupBox, QDialog, QVBoxLayout, QHBoxLayout
-from PyQt5.QtWidgets import QStyle
+from PyQt5.QtWidgets import QStyle, QGraphicsView
 from PyQt5.QtCore import pyqtSlot, QThread, QTimer, Qt, QMutex
 from PyQt5 import  QtGui, QtCore
 # from pyqtgraph.Qt import QtGui, QtCore
@@ -116,7 +116,7 @@ class OrderBoard(QMainWindow):
         #     self.loadConfigGetData(filepath)
 
         """ Some other parameters """
-        self.__DEBUG = False
+        self.__DEBUG = True
         # self.__log_level = "None"
     
     @footprint
@@ -1003,6 +1003,7 @@ class OrderBoard(QMainWindow):
                 )
             )
             self.saveLastExecution()
+            self.screenShot()
         except Exception as ex:
             print("@ saving an order:", ex)
         
@@ -1038,6 +1039,19 @@ class OrderBoard(QMainWindow):
         history = dict(executions=self._executions)
         with open(fpath, "w") as ff:
             json.dump(history, ff, indent=4)
+    
+    @footprint
+    def screenShot(self):
+        imgfldr = "./images"
+        if not os.path.exists(imgfldr):
+            os.mkdir(imgfldr)
+        datetimeFmt = "%Y%m%d%H%M%S"
+        now = datetime.datetime.now().strftime(datetimeFmt)
+        preview_window = QApplication.primaryScreen().grabWindow(0)
+        preview_window.save(os.path.join(imgfldr, "{}_screenshot.png".format(now)), "png")
+        # view = QGraphicsView()
+        # view.show()
+        # view.grab().save(os.path.join(imgfldr, "{}_screenshot.png".format(now)))
 
     @footprint
     @pyqtSlot()
