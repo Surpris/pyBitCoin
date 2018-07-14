@@ -116,7 +116,7 @@ class OrderBoard(QMainWindow):
         #     self.loadConfigGetData(filepath)
 
         """ Some other parameters """
-        self.__DEBUG = True
+        self.__DEBUG = False
         # self.__log_level = "None"
     
     @footprint
@@ -130,7 +130,7 @@ class OrderBoard(QMainWindow):
         self._execution_count = 0
         self._last_exec = dict()
         self._last_order = dict()
-        self._order_interst = dict()
+        self._order_interest = dict()
 
 ######################## Construction of GUI ########################
     @footprint
@@ -1058,21 +1058,29 @@ class OrderBoard(QMainWindow):
     def getLastExecution(self):
         """getLastExecution(self) -> None
         """
+
+        self.__getLastExecution()
+        self.updateCurrentTable()
+    
+    def __getLastExecution(self):
         count = 1
         try:
             results = self._api.getexecutions(product_code=self._product_code, count=count)
             if len(results) <= 0:
+                self._last_exec = dict()
                 self.txt_log.append("{}: No executions.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
                 return
             
             result = results[0]
             if not isinstance(result, dict):
+                self._last_exec = dict()
                 self.txt_log.append("{}: result has an unacceptable type = '{}'.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"), 
                                         type(result)))
                 return
             if "exec_date" not in result.keys():
+                self._last_exec = dict()
                 self.txt_log.append("{}: No executions.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
                 return
@@ -1088,7 +1096,6 @@ class OrderBoard(QMainWindow):
                     self._last_exec[key] = result["commission"]
                 else:
                     self._last_exec[key] = result[key]
-            self.updateStateTable()
         except KeyError as ex:
             self.txt_log.append(ex)
             return
@@ -1098,7 +1105,12 @@ class OrderBoard(QMainWindow):
     def getLastOrderState(self):
         """getLastOrderState(self) -> None
         """
+        self.__getLastOrderState()
+        self.updateCurrentTable()
+    
+    def __getLastOrderState(self):
         if len(self._executions) <= 0:
+            self._last_order = dict()
             self.txt_log.append("{}: No executions.".\
                                 format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
             return
@@ -1112,6 +1124,7 @@ class OrderBoard(QMainWindow):
             }
             results = self._api.getchildorders(**params)
             if len(results) <= 0:
+                self._last_order = dict()
                 self.txt_log.append("{}: No order with id {}.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
                                            child_order_acceptance_id))
@@ -1119,12 +1132,14 @@ class OrderBoard(QMainWindow):
             
             result = results[0]
             if not isinstance(result, dict):
+                self._last_order = dict()
                 self.txt_log.append("{}: result from id {} has an unacceptable type = '{}'.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
                                            child_order_acceptance_id, 
                                            type(result)))
                 return
             if not "child_order_date" in result.keys():
+                self._last_order = dict()
                 self.txt_log.append("{}: No order with id {}.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
                                            child_order_acceptance_id))
@@ -1140,7 +1155,6 @@ class OrderBoard(QMainWindow):
                     self._last_order[key] = result["child_order_state"]
                 else:
                     self._last_order[key] = result[key]
-            self.updateStateTable()
         except KeyError as ex:
             self.txt_log.append(ex)
             return
@@ -1150,20 +1164,27 @@ class OrderBoard(QMainWindow):
     def getOrderInterest(self):
         """getOrderInterest(self) -> None
         """
+        self.__getOrderInterest()
+        self.updateCurrentTable()
+
+    def __getOrderInterest(self):
         try:
             results = self._api.getpositions(product_code=self._product_code)
             if len(results) <= 0:
+                self._order_interest = dict()
                 self.txt_log.append("{}: No order interests.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
                 return
             
             result = results[0]
             if not isinstance(result, dict):
+                self._order_interest = dict()
                 self.txt_log.append("{}: result has an unacceptable type = '{}'.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"), 
                                         type(result)))
                 return
             if not "open_date" in result.keys():
+                self._order_interest = dict()
                 self.txt_log.append("{}: No order interests.".\
                                     format(datetime.datetime.now().strftime("%Y%m%d%H%M%S")))
                 return
@@ -1174,26 +1195,25 @@ class OrderBoard(QMainWindow):
         try:
             for key in self.current_table_key:
                 if key == "date":
-                    self._order_interst[key] = result["open_date"].split("T")[-1][:8]
+                    self._order_interest[key] = result["open_date"].split("T")[-1][:8]
                 elif key == "state":
-                    self._order_interst[key] = result["leverage"]
+                    self._order_interest[key] = result["leverage"]
                 else:
-                    self._order_interst[key] = result[key]
-            self.updateStateTable()
+                    self._order_interest[key] = result[key]
         except KeyError as ex:
             self.txt_log.append(ex)
             return
     
     @footprint
-    def updateStateTable(self):
-        """updateStateTable(self) -> None
+    def updateCurrentTable(self):
+        """updateCurrentTable(self) -> None
         TODO: to change the widget from QTableWidget to QTableView
         """
         try:
             for ii, key in enumerate(self.current_table_key):
                 lex = "" if self._last_exec.get(key) is None else self._last_exec.get(key)
                 los = "" if self._last_order.get(key) is None else self._last_order.get(key)
-                loi = "" if self._order_interst.get(key) is None else self._order_interst.get(key)
+                loi = "" if self._order_interest.get(key) is None else self._order_interest.get(key)
                 col = [loi, lex, los]
                 self.current_table.setItem(ii, 0, QTableWidgetItem(key))
                 for jj in range(len(col)):
