@@ -5,7 +5,7 @@ import datetime
 _dtformat = "%Y-%m-%d %H:%M:%S"
 
 def footprint(func):
-    """
+    """footprint(func) -> wrapper function
     Print the datetime when the wrappered function is called, and the name of function.
     """
     @functools.wraps(func)

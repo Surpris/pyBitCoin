@@ -19,7 +19,7 @@ from PyQt5 import  QtGui, QtCore
 
 from utils import footprint
 from utils import make_groupbox_and_grid, make_label, make_pushbutton
-from Worker import GetTickerWorker
+from workers import GetTickerWorker, Bot1
 
 class OrderBoard(QMainWindow):
     """OrderBoard class (subclass of QMainWindow)
