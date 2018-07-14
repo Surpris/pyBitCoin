@@ -20,8 +20,8 @@ from PyQt5 import  QtGui, QtCore
 
 # import pyqtgraph as pg
 
-from utils.decorator import footprint
-# from utils.
+from utils import footprint
+from utils import make_groupbox_and_grid, make_label, make_pushbutton
 from Worker import GetTickerWorker
 
 class OrderBoard(QMainWindow):
@@ -34,8 +34,6 @@ class OrderBoard(QMainWindow):
         self.initGui()
         # For QPushButton on QMassageBox
         str_ = "background-color:{0};".format(self._button_bg_color)
-        # qApp.setStyleSheet("QMessageBox::QPushButton{" + str_ + "}")
-        # qApp.setStyleSheet("QMessageBox::QPushButton{" + str_ + "}")
         self.initGetDataProcess()
     
     @footprint
@@ -173,20 +171,20 @@ class OrderBoard(QMainWindow):
 
         """ Bank information """
         group_bankinfo, grid_bankinfo = \
-            self.__makeGroupboxAndGrid(self, (self._window_width - 20)//3, 50, 
-                                       "Board Info.", self._groupbox_title_font_size, 5)
+            make_groupbox_and_grid(self, (self._window_width - 20)//3, 50, 
+                                   "Board Info.", self._groupbox_title_font_size, 5)
         
-        self.jpy_value = self.__makeLabel(group_bankinfo, self._default_value, self._label_font_size, 
-                                          isBold=self._label_font_bold, alignment=Qt.AlignRight, 
-                                          color=self._label_font_color)
+        self.jpy_value = make_label(group_bankinfo, self._default_value, self._label_font_size, 
+                                    isBold=self._label_font_bold, alignment=Qt.AlignRight, 
+                                    color=self._label_font_color)
         
-        self.btc_value = self.__makeLabel(group_bankinfo, self._default_value, self._label_font_size, 
-                                          isBold=self._label_font_bold, alignment=Qt.AlignRight, 
-                                          color=self._label_font_color)
-        
-        self.tot_value = self.__makeLabel(group_bankinfo, self._default_value, self._label_font_size, 
-                                          isBold=self._label_font_bold, alignment=Qt.AlignRight, 
-                                          color=self._label_font_color)
+        self.btc_value = make_label(group_bankinfo, self._default_value, self._label_font_size, 
+                                    isBold=self._label_font_bold, alignment=Qt.AlignRight, 
+                                    color=self._label_font_color)
+
+        self.tot_value = make_label(group_bankinfo, self._default_value, self._label_font_size, 
+                                    isBold=self._label_font_bold, alignment=Qt.AlignRight, 
+                                    color=self._label_font_color)
         
         grid_bankinfo.addWidget(self.jpy_value, 0, 0)
         grid_bankinfo.addWidget(self.btc_value, 1, 0)
@@ -194,52 +192,52 @@ class OrderBoard(QMainWindow):
 
         """ Board information """
         group_boardinfo, grid_boardinfo = \
-            self.__makeGroupboxAndGrid(self, (self._window_width - 20)*2//3, 50, 
-                                       "Board Info.", self._groupbox_title_font_size, 5)
+            make_groupbox_and_grid(self, (self._window_width - 20)*2//3, 50, 
+                                   "Board Info.", self._groupbox_title_font_size, 5)
 
         # Best ask
-        label_best_ask = self.__makeLabel(group_boardinfo, "Ask: ", self._label_font_size, 
-                                     isBold=self._label_font_bold, alignment=Qt.AlignRight)
+        label_best_ask = make_label(group_boardinfo, "Ask: ", self._label_font_size, 
+                                    isBold=self._label_font_bold, alignment=Qt.AlignRight)
         
         self.label_best_ask_value = \
-            self.__makeLabel(group_boardinfo, self._default_value, self._label_font_size, 
-                             isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
-                             color=self._ask_color)
+            make_label(group_boardinfo, self._default_value, self._label_font_size, 
+                       isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
+                       color=self._ask_color)
 
         # Last execution
-        label_ltp = self.__makeLabel(group_boardinfo, "LTP: ", self._label_font_size, 
-                                     isBold=self._label_font_bold, alignment=Qt.AlignRight)
+        label_ltp = make_label(group_boardinfo, "LTP: ", self._label_font_size, 
+                               isBold=self._label_font_bold, alignment=Qt.AlignRight)
         
         self.label_ltp_value = \
-            self.__makeLabel(group_boardinfo, self._default_value, self._label_font_size, 
-                             isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
-                             color="lightgray")
+            make_label(group_boardinfo, self._default_value, self._label_font_size, 
+                       isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
+                       color="lightgray")
 
         # Best bid
-        label_best_bid = self.__makeLabel(group_boardinfo, "Bid: ", self._label_font_size, 
-                                     isBold=self._label_font_bold, alignment=Qt.AlignRight)
+        label_best_bid = make_label(group_boardinfo, "Bid: ", self._label_font_size, 
+                                    isBold=self._label_font_bold, alignment=Qt.AlignRight)
         
         self.label_best_bid_value = \
-            self.__makeLabel(group_boardinfo, self._default_value, self._label_font_size, 
-                             isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
-                             color=self._bid_color)
+            make_label(group_boardinfo, self._default_value, self._label_font_size, 
+                       isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
+                       color=self._bid_color)
         
         # Health/State
         self.health_info = \
-            self.__makeLabel(group_boardinfo, "STOP", self._label_font_size, 
-                             isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
-                             color=self._label_font_color)
+            make_label(group_boardinfo, "STOP", self._label_font_size, 
+                       isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
+                       color=self._label_font_color)
         
         self.state_info = \
-            self.__makeLabel(group_boardinfo, "CLOSED", self._label_font_size, 
-                             isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
-                             color=self._label_font_color)
+            make_label(group_boardinfo, "CLOSED", self._label_font_size, 
+                       isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
+                       color=self._label_font_color)
         
         self.btn_start_ticker = \
-            self.__makePushButton(group_boardinfo, 
-                                  (self._window_width - 40)//4, 60, 
-                                  "Start", self._button_font_size, self.runAutoGetTicker, 
-                                  color=self._button_bg_color)
+            make_pushbutton(group_boardinfo, 
+                            (self._window_width - 40)//4, 60, 
+                            "Start", self._button_font_size, self.runAutoGetTicker, 
+                            color=self._button_bg_color)
 
         # construct the layout
         grid_boardinfo.addWidget(label_best_ask, 0, 0, 1, 1)
@@ -257,30 +255,31 @@ class OrderBoard(QMainWindow):
 
         """ Bid / Ask / Order """
         group_bidask, grid_bidask = \
-            self.__makeGroupboxAndGrid(self, self._window_width - 20, 30, 
-                                       "Order", self._groupbox_title_font_size, 5)
+            make_groupbox_and_grid(self, self._window_width - 20, 30, 
+                                   "Order", self._groupbox_title_font_size, 5)
         
-        label_expected_current = self.__makeLabel(group_bidask, "Current: ", self._label_font_size, 
-                                                  isBold=self._label_font_bold, alignment=Qt.AlignRight)
+        label_expected_current = make_label(group_bidask, "Current: ", self._label_font_size, 
+                                            isBold=self._label_font_bold, alignment=Qt.AlignRight)
 
-        self.expected_current = self.__makeLabel(group_bidask, self._default_value, self._label_font_size, 
-                                                 isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        self.expected_current = make_label(group_bidask, self._default_value, self._label_font_size, 
+                                           isBold=self._label_font_bold, alignment=Qt.AlignLeft, 
+                                           color=self._label_font_color)
 
-        self.btn_ask = self.__makePushButton(group_bidask, (self._window_width - 40)//6, 20, 
-                                             "Ask", self._button_font_size, None, 
-                                             color=self._ask_color)
+        self.btn_ask = make_pushbutton(group_bidask, (self._window_width - 40)//6, 20, 
+                                       "Ask", self._button_font_size, None, 
+                                       color=self._ask_color)
         self.btn_ask.setCheckable(True)
         self.btn_ask.clicked.connect(self.updateOnAsk)
         
-        self.btn_bid = self.__makePushButton(group_bidask, (self._window_width - 40)//6, 20, 
-                                             "Bid", self._button_font_size, None, 
-                                             color=self._bid_color)
+        self.btn_bid = make_pushbutton(group_bidask, (self._window_width - 40)//6, 20, 
+                                       "Bid", self._button_font_size, None, 
+                                       color=self._bid_color)
         self.btn_bid.setCheckable(True)
         self.btn_bid.clicked.connect(self.updateOnBid)
 
-        self.btn_order = self.__makePushButton(group_bidask, (self._window_width - 50)//3, 20, 
-                                               "Order", self._button_font_size, self.order, 
-                                               color=self._button_bg_color, isBold=True)
+        self.btn_order = make_pushbutton(group_bidask, (self._window_width - 50)//3, 20, 
+                                         "Order", self._button_font_size, self.order, 
+                                         color=self._button_bg_color, isBold=True)
         self.btn_order.setEnabled(False)
 
         # construct the layout
@@ -292,32 +291,32 @@ class OrderBoard(QMainWindow):
 
         """ Volume buttons """
         group_volume, grid_volume = \
-            self.__makeGroupboxAndGrid(self, self._window_width - 20, 30, 
-                                       "Volume (BTC)", self._groupbox_title_font_size, 5)
+            make_groupbox_and_grid(self, self._window_width - 20, 30, 
+                                   "Volume (BTC)", self._groupbox_title_font_size, 5)
 
         # +0.01 BTCs button
-        self.btn_1pct = self.__makePushButton(group_volume, 
-                                               (self._window_width - 40)//4, 20, 
-                                               "+0.01", self._button_font_size, self.add1pct, 
-                                               color=self._button_bg_color, isBold=True)
+        self.btn_1pct = make_pushbutton(group_volume, 
+                                        (self._window_width - 40)//4, 20, 
+                                        "+0.01", self._button_font_size, self.add1pct, 
+                                        color=self._button_bg_color, isBold=True)
 
         # +0.1 BTCs button
-        self.btn_10pct = self.__makePushButton(group_volume, 
-                                               (self._window_width - 40)//4, 20, 
-                                               "+0.1", self._button_font_size, self.add10pct, 
-                                               color=self._button_bg_color, isBold=True)
+        self.btn_10pct = make_pushbutton(group_volume, 
+                                         (self._window_width - 40)//4, 20, 
+                                         "+0.1", self._button_font_size, self.add10pct, 
+                                         color=self._button_bg_color, isBold=True)
 
         # +1 BTCs button
-        self.btn_100pct = self.__makePushButton(group_volume, 
-                                               (self._window_width - 40)//4, 20, 
-                                               "+1", self._button_font_size, self.add100pct, 
-                                               color=self._button_bg_color, isBold=True)
+        self.btn_100pct = make_pushbutton(group_volume, 
+                                          (self._window_width - 40)//4, 20, 
+                                          "+1", self._button_font_size, self.add100pct, 
+                                          color=self._button_bg_color, isBold=True)
 
         # clear button
-        self.btn_clear = self.__makePushButton(group_volume, 
-                                               (self._window_width - 40)//4, 20, 
-                                               "C", self._button_font_size, self.clearSize, 
-                                               color=self._button_bg_color, isBold=True)
+        self.btn_clear = make_pushbutton(group_volume, 
+                                         (self._window_width - 40)//4, 20, 
+                                         "C", self._button_font_size, self.clearSize, 
+                                         color=self._button_bg_color, isBold=True)
 
         # construct the layout
         grid_volume.addWidget(self.btn_1pct, 0, 0)
@@ -327,12 +326,12 @@ class OrderBoard(QMainWindow):
 
         """ Value setting """
         group_values, grid_values = \
-            self.__makeGroupboxAndGrid(self, self._window_width - 20, 50, 
-                                       "Values", self._groupbox_title_font_size, 5)
+            make_groupbox_and_grid(self, self._window_width - 20, 50, 
+                                   "Values", self._groupbox_title_font_size, 5)
         
         # BTC volume
-        label_btc_size = self.__makeLabel(group_values, "Size", self._label_font_size, 
-                                            isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        label_btc_size = make_label(group_values, "Size", self._label_font_size, 
+                                    isBold=self._label_font_bold, alignment=Qt.AlignLeft)
 
         self.txt_btc = QLineEdit(group_values)
         self.txt_btc.setText("0")
@@ -344,8 +343,8 @@ class OrderBoard(QMainWindow):
         self.txt_btc.setValidator(QDoubleValidator())
         self.txt_btc.textChanged.connect(self.updateExpectedValues)
 
-        label_btc_unit = self.__makeLabel(group_values, "B", self._label_font_size, 
-                                            isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        label_btc_unit = make_label(group_values, "B", self._label_font_size, 
+                                    isBold=self._label_font_bold, alignment=Qt.AlignLeft)
         
         # BTCJPY
         ## Auto-manual flag checkbox
@@ -366,12 +365,12 @@ class OrderBoard(QMainWindow):
         self.txt_btcjpy.textChanged.connect(self.updateExpectedValues)
         self.txt_btcjpy.setReadOnly(True)
 
-        label_jpy_unit = self.__makeLabel(group_values, "yen", self._label_font_size, 
-                                          isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        label_jpy_unit = make_label(group_values, "yen", self._label_font_size, 
+                                    isBold=self._label_font_bold, alignment=Qt.AlignLeft)
         
         # Stop value (relative)
-        label_stop = self.__makeLabel(group_values, "Stop: ", self._label_font_size, 
-                                      isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        label_stop = make_label(group_values, "Stop: ", self._label_font_size, 
+                                isBold=self._label_font_bold, alignment=Qt.AlignLeft)
         
         self.txt_stop = QLineEdit(group_values)
         self.txt_stop.setText(self._default_value)
@@ -384,12 +383,12 @@ class OrderBoard(QMainWindow):
         # self.txt_stop.textChanged.connect(self.updateExpectedStop)
         self.txt_stop.setReadOnly(True)
 
-        label_stop_unit = self.__makeLabel(group_values, "yen", self._label_font_size, 
-                                           isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        label_stop_unit = make_label(group_values, "yen", self._label_font_size, 
+                                     isBold=self._label_font_bold, alignment=Qt.AlignLeft)
 
         # Goal value (relative)
-        label_goal = self.__makeLabel(group_values, "Goal: ", self._label_font_size, 
-                                     isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        label_goal = make_label(group_values, "Goal: ", self._label_font_size, 
+                                isBold=self._label_font_bold, alignment=Qt.AlignLeft)
         
         self.txt_goal = QLineEdit(group_values)
         self.txt_goal.setText(self._default_value)
@@ -402,8 +401,8 @@ class OrderBoard(QMainWindow):
         # self.txt_goal.textChanged.connect(self.updateExpectedGoal)
         self.txt_goal.setReadOnly(True)
 
-        label_goal_unit = self.__makeLabel(group_values, "yen", self._label_font_size, 
-                                           isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        label_goal_unit = make_label(group_values, "yen", self._label_font_size, 
+                                     isBold=self._label_font_bold, alignment=Qt.AlignLeft)
 
         # construct the layout
         grid_values.addWidget(label_btc_size, 0, 0)
@@ -424,28 +423,28 @@ class OrderBoard(QMainWindow):
         
         """ Expected values """
         # group_expected, grid_expected = \
-        #     self.__makeGroupboxAndGrid(self, self._window_width - 20, 50, 
+        #     make_groupbox_and_grid(self, self._window_width - 20, 50, 
         #                                "Expected values", self._groupbox_title_font_size, 5)
         
         # Expected current value
-        # label_expected_current = self.__makeLabel(group_expected, "Expected: ", self._label_font_size, 
+        # label_expected_current = make_label(group_expected, "Expected: ", self._label_font_size, 
         #                                           isBold=self._label_font_bold, alignment=Qt.AlignRight)
         
-        # self.expected_current = self.__makeLabel(group_expected, self._default_value, self._label_font_size, 
+        # self.expected_current = make_label(group_expected, self._default_value, self._label_font_size, 
         #                                          isBold=self._label_font_bold, alignment=Qt.AlignLeft)
 
         # Expected stop value
-        # label_expected_stop = self.__makeLabel(group_expected, "Stop: ", self._label_font_size, 
+        # label_expected_stop = make_label(group_expected, "Stop: ", self._label_font_size, 
         #                                        isBold=self._label_font_bold, alignment=Qt.AlignRight)
         
-        # self.expected_stop = self.__makeLabel(group_expected, self._default_value, self._label_font_size, 
+        # self.expected_stop = make_label(group_expected, self._default_value, self._label_font_size, 
         #                                       isBold=self._label_font_bold, alignment=Qt.AlignLeft)
         
         # Expected goal value
-        # label_expected_goal = self.__makeLabel(group_expected, "Goal: ", self._label_font_size, 
+        # label_expected_goal = make_label(group_expected, "Goal: ", self._label_font_size, 
         #                                        isBold=self._label_font_bold, alignment=Qt.AlignRight)
         
-        # self.expected_goal = self.__makeLabel(group_expected, self._default_value, self._label_font_size, 
+        # self.expected_goal = make_label(group_expected, self._default_value, self._label_font_size, 
         #                                       isBold=self._label_font_bold, alignment=Qt.AlignLeft)
         
         # construct the layout
@@ -458,36 +457,36 @@ class OrderBoard(QMainWindow):
 
         """ Current State Control """
         group_current, grid_current = \
-            self.__makeGroupboxAndGrid(self, self._window_width - 20, 100, 
-                                       "Current State Control", self._groupbox_title_font_size, 5)
+            make_groupbox_and_grid(self, self._window_width - 20, 100, 
+                                   "Current State Control", self._groupbox_title_font_size, 5)
         
         # Order button
-        # self.btn_order = self.__makePushButton(group_current, (self._window_width - 50)//2, 20, 
+        # self.btn_order = make_pushbutton(group_current, (self._window_width - 50)//2, 20, 
         #                                        "Order", self._button_font_size, self.order, 
         #                                        color=self._button_bg_color, isBold=True)
         # self.btn_order.setEnabled(False)
 
         # Get last execution button
-        self.btn_get_ex = self.__makePushButton(group_current, (self._window_width - 50)//4, 20, 
-                                                 "Exec", self._button_font_size, self.getLastExecution, 
-                                                 color=self._button_bg_color, isBold=True)
+        self.btn_get_ex = make_pushbutton(group_current, (self._window_width - 50)//4, 20, 
+                                          "Exec", self._button_font_size, self.getLastExecution, 
+                                          color=self._button_bg_color, isBold=True)
         
         # Get last order state button
-        self.btn_get_los = self.__makePushButton(group_current, (self._window_width - 50)//4, 20, 
-                                                 "Last Order", self._button_font_size, self.getLastOrderState, 
-                                                 color=self._button_bg_color, isBold=True)
+        self.btn_get_los = make_pushbutton(group_current, (self._window_width - 50)//4, 20, 
+                                           "Last Order", self._button_font_size, self.getLastOrderState, 
+                                           color=self._button_bg_color, isBold=True)
         
         # Get order interest button
         self.btn_get_interest = \
-            self.__makePushButton(group_current, (self._window_width - 50)//4, 20, 
-                                  "Interest", self._button_font_size, self.getOrderInterest, 
-                                  color=self._button_bg_color, isBold=True)
+            make_pushbutton(group_current, (self._window_width - 50)//4, 20, 
+                            "Interest", self._button_font_size, self.getOrderInterest, 
+                            color=self._button_bg_color, isBold=True)
         
         # cancel all order button
         self.btn_cancel_all = \
-            self.__makePushButton(group_current, (self._window_width - 50)//4, 20, 
-                                  "Cancel", self._button_font_size, self.cancelAllOrders, 
-                                  color=self._button_bg_color, isBold=True)
+            make_pushbutton(group_current, (self._window_width - 50)//4, 20, 
+                            "Cancel", self._button_font_size, self.cancelAllOrders, 
+                            color=self._button_bg_color, isBold=True)
         
         # construct the layout
         # grid_current.addWidget(self.btn_order, 0, 0)
@@ -536,100 +535,6 @@ class OrderBoard(QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
         self.setFixedSize(self.size())
-    
-    def __makeGroupboxAndGrid(self, parent, width, height, title, fontsize, spacing):
-        """__makeGroupboxAndGrid(self, parent, width, height, title, fontsize, spacing) -> groupbox, grid
-
-        Parameters
-        ----------
-        parent : parent class overtaking QtWidgets
-        width : int
-        height : int
-        title : str
-        fontsize : int
-        spacing : int
-
-        Returns
-        -------
-        groupbox : QGroupBox
-        grid : QGridLayout
-        """
-
-        groupbox = QGroupBox(parent)
-        groupbox.setTitle(title)
-        font = groupbox.font()
-        font.setPointSize(fontsize)
-        groupbox.setFont(font)
-        groupbox.resize(width, height)
-        grid = QGridLayout(groupbox)
-        grid.setSpacing(spacing)
-        return groupbox, grid
-    
-    def __makeLabel(self, parent, text, fontsize, isBold=False, alignment=None, color=None):
-        """__makeLabel(self, parent, text, fontsize, isBold, alignment, color) -> QLable
-
-        Parameters
-        ----------
-        parent : parent class overtaking QtWidgets
-        text : str
-        fontsize : int
-        isBold : bool
-        alignment : Qt.Align
-        color : str (color code)
-
-        Returns
-        -------
-        label : QLabel
-        """
-
-        label = QLabel(parent)
-        label.setText(text)
-        font = label.font()
-        font.setPointSize(fontsize)
-        font.setBold(isBold)
-        label.setFont(font)
-        
-        if alignment is not None:
-            label.setAlignment(alignment)
-        if color is not None:
-            pal = QPalette()
-            pal.setColor(QPalette.Foreground, QColor(color))
-            label.setPalette(pal)
-        return label
-    
-    def __makePushButton(self, parent, width, height, text, fontsize, method=None, color=None, isBold=False):
-        """__makePushButton(self, parent, width, height, text, fontsize, method, color, isBold) -> QPushButton
-
-        Parameters
-        ----------
-        parent : class overtaking QtWidgets
-        width : int
-        height : int
-        text : str
-        fontsize : str
-        method : function
-        color : str (color code)
-        isBold : bool
-
-        Returns
-        -------
-        button : QPushButton
-
-        """
-        # clear button
-        button = QPushButton(parent)
-        button.resize(width, height)
-        button.setText(text)
-        font = button.font()
-        font.setPointSize(fontsize)
-        button.setFont(font)
-        
-        if color is not None:
-            button.setStyleSheet("background-color:{};".format(color))
-        if method is not None:
-            button.clicked.connect(method)
-
-        return button
     
     @footprint
     def setMenuBar(self):
