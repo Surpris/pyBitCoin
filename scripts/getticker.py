@@ -44,7 +44,11 @@ if __name__ == "__main__":
             ticker = api.ticker()
             print(ticker)
             tickers.append(ticker)
-            time.sleep(interval - (time.time() - st))
+            elapsed = time.time() - st
+            print(elapsed)
+            if interval > elapsed:
+                time.sleep(interval - elapsed)
+                
     except KeyboardInterrupt as ex:
         print(ex)
         fname = "data_{}.json".format(datetime.now().strftime("%Y%m%d%H%M%S"))
