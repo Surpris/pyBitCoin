@@ -2,8 +2,9 @@
 #-*- coding: utf-8 -*-
 
 import glob
+import json
 import os
-import pickle
+# import pickle
 import pybitflyer
 import time
 from datetime import datetime
@@ -42,11 +43,15 @@ if __name__ == "__main__":
             st = time.time()
             ticker = api.ticker()
             print(ticker)
-            tickers.append(tikcer)
+            tickers.append(ticker)
             time.sleep(interval - (time.time() - st))
     except KeyboardInterrupt as ex:
         print(ex)
-        fpath = "./data_{}.pickle".format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-        with open(fpath, "rb") as ff:
-            pickle.dump(tickers, ff)
-            print("save @ '{}'.".format(fpath))
+        fname = "data_{}.json".format(datetime.now().strftime("%Y%m%d%H%M%S"))
+        fldr = os.path.join(os.path.dirname(__file__), "data")
+        if not os.path.exists(fldr):
+            os.mkdir(fldr)
+        result = dict(tickers=tickers)
+        with open(os.path.join(fldr, fname), "w") as ff:
+            json.dump(result, ff, indent=4)
+            print("save to '{}'.".format(os.path.join(fldr, fname)))
