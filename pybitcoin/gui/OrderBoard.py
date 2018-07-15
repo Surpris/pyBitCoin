@@ -50,7 +50,7 @@ class OrderBoard(QMainWindow):
         # self._windows = []
 
         self._window_width = 360 # [pixel]
-        self._window_height = 675 # [pixel]
+        self._window_height = 720 # [pixel]
         self._window_color = "#566573"
 
         self._groupbox_title_font_size = 12 # [pixel]
@@ -205,7 +205,7 @@ class OrderBoard(QMainWindow):
 
         """ Board information """
         group_boardinfo, grid_boardinfo = \
-            make_groupbox_and_grid(self, (self._window_width - 20)*2//3, 50, 
+            make_groupbox_and_grid(self, (self._window_width - 20)*2//3, 70, 
                                    "Board Info.", self._groupbox_title_font_size, 5)
 
         # Best ask
@@ -381,41 +381,41 @@ class OrderBoard(QMainWindow):
         label_jpy_unit = make_label(group_values, "yen", self._label_font_size, 
                                     isBold=self._label_font_bold, alignment=Qt.AlignLeft)
         
-        # Stop value (relative)
-        label_stop = make_label(group_values, "Stop: ", self._label_font_size, 
-                                isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        # # Stop value (relative)
+        # label_stop = make_label(group_values, "Stop: ", self._label_font_size, 
+        #                         isBold=self._label_font_bold, alignment=Qt.AlignLeft)
         
-        self.txt_stop = QLineEdit(group_values)
-        self.txt_stop.setText(self._default_value)
-        font = self.txt_stop.font()
-        font.setPointSize(self._button_font_size)
-        self.txt_stop.setFont(font)
-        self.txt_stop.resize((self._window_width - 50)//3, 16)
-        self.txt_stop.setStyleSheet("background-color:{};".format(self._txt_bg_color))
-        self.txt_stop.setValidator(QIntValidator())
-        # self.txt_stop.textChanged.connect(self.updateExpectedStop)
-        self.txt_stop.setReadOnly(True)
+        # self.txt_stop = QLineEdit(group_values)
+        # self.txt_stop.setText(self._default_value)
+        # font = self.txt_stop.font()
+        # font.setPointSize(self._button_font_size)
+        # self.txt_stop.setFont(font)
+        # self.txt_stop.resize((self._window_width - 50)//3, 16)
+        # self.txt_stop.setStyleSheet("background-color:{};".format(self._txt_bg_color))
+        # self.txt_stop.setValidator(QIntValidator())
+        # # self.txt_stop.textChanged.connect(self.updateExpectedStop)
+        # self.txt_stop.setReadOnly(True)
 
-        label_stop_unit = make_label(group_values, "yen", self._label_font_size, 
-                                     isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        # label_stop_unit = make_label(group_values, "yen", self._label_font_size, 
+        #                              isBold=self._label_font_bold, alignment=Qt.AlignLeft)
 
-        # Goal value (relative)
-        label_goal = make_label(group_values, "Goal: ", self._label_font_size, 
-                                isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        # # Goal value (relative)
+        # label_goal = make_label(group_values, "Goal: ", self._label_font_size, 
+        #                         isBold=self._label_font_bold, alignment=Qt.AlignLeft)
         
-        self.txt_goal = QLineEdit(group_values)
-        self.txt_goal.setText(self._default_value)
-        font = self.txt_goal.font()
-        font.setPointSize(self._button_font_size)
-        self.txt_goal.setFont(font)
-        self.txt_goal.resize((self._window_width - 50)//3, 16)
-        self.txt_goal.setStyleSheet("background-color:{};".format(self._txt_bg_color))
-        self.txt_goal.setValidator(QIntValidator())
-        # self.txt_goal.textChanged.connect(self.updateExpectedGoal)
-        self.txt_goal.setReadOnly(True)
+        # self.txt_goal = QLineEdit(group_values)
+        # self.txt_goal.setText(self._default_value)
+        # font = self.txt_goal.font()
+        # font.setPointSize(self._button_font_size)
+        # self.txt_goal.setFont(font)
+        # self.txt_goal.resize((self._window_width - 50)//3, 16)
+        # self.txt_goal.setStyleSheet("background-color:{};".format(self._txt_bg_color))
+        # self.txt_goal.setValidator(QIntValidator())
+        # # self.txt_goal.textChanged.connect(self.updateExpectedGoal)
+        # self.txt_goal.setReadOnly(True)
 
-        label_goal_unit = make_label(group_values, "yen", self._label_font_size, 
-                                     isBold=self._label_font_bold, alignment=Qt.AlignLeft)
+        # label_goal_unit = make_label(group_values, "yen", self._label_font_size, 
+        #                              isBold=self._label_font_bold, alignment=Qt.AlignLeft)
 
         # construct the layout
         grid_values.addWidget(label_btc_size, 0, 0)
@@ -426,13 +426,13 @@ class OrderBoard(QMainWindow):
         grid_values.addWidget(self.txt_btcjpy, 1, 1)
         grid_values.addWidget(label_jpy_unit, 1, 2)
 
-        grid_values.addWidget(label_stop, 2, 0)
-        grid_values.addWidget(self.txt_stop, 2, 1)
-        grid_values.addWidget(label_stop_unit, 2, 2)
+        # grid_values.addWidget(label_stop, 2, 0)
+        # grid_values.addWidget(self.txt_stop, 2, 1)
+        # grid_values.addWidget(label_stop_unit, 2, 2)
 
-        grid_values.addWidget(label_goal, 3, 0)
-        grid_values.addWidget(self.txt_goal, 3, 1)
-        grid_values.addWidget(label_goal_unit, 3, 2)
+        # grid_values.addWidget(label_goal, 3, 0)
+        # grid_values.addWidget(self.txt_goal, 3, 1)
+        # grid_values.addWidget(label_goal_unit, 3, 2)
         
         """ Expected values """
         # group_expected, grid_expected = \
@@ -521,7 +521,7 @@ class OrderBoard(QMainWindow):
         self.current_table.setStyleSheet("background-color:{};".format("white"))
         self.current_table.setHorizontalHeaderLabels(self.current_table_header)
         self.current_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.current_table.setFixedSize(self._window_width - 20, 180)
+        self.current_table.setFixedSize(self._window_width - 20, 150)
 
         """ Log """
         # Order/Execution Log
