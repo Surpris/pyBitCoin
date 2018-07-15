@@ -3,7 +3,7 @@
 
 import pybitflyer
 
-from Worker import Worker
+from .Worker import Worker
 
 class Bot1(Worker):
     """Bot1
