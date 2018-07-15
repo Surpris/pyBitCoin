@@ -34,12 +34,19 @@ except Exception as ex:
 
 if __name__ == "__main__":
     count = 0
+    interval = 1.0
+    datetimeFmt = ""
+    tickers = []
     try:
         while True:
             st = time.time()
             ticker = api.ticker()
             print(ticker)
-            time.sleep(time.time() - st)
-    except KeyboardInterrupt:
-        print(KeyboardInterrupt)
-    
+            tickers.append(tikcer)
+            time.sleep(interval - (time.time() - st))
+    except KeyboardInterrupt as ex:
+        print(ex)
+        fpath = "./data_{}.pickle".format(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+        with open(fpath, "rb") as ff:
+            pickle.dump(tickers, ff)
+            print("save @ '{}'.".format(fpath))
