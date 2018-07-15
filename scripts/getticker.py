@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 #-*- coding: utf-8 -*-
 
 import glob
@@ -37,6 +38,7 @@ if __name__ == "__main__":
         while True:
             st = time.time()
             ticker = api.ticker()
+            print(ticker)
             time.sleep(time.time() - st)
     except KeyboardInterrupt:
         print(KeyboardInterrupt)

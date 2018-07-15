@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 # -*- coding: utf-8 -*-
 
 import pybitflyer
@@ -9,3 +10,4 @@ class Bot1(Worker):
     Bot class for OrderBoard
     """
     def __init__(self):
+        pass
