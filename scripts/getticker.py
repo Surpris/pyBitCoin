@@ -53,7 +53,12 @@ if __name__ == "__main__":
     try:
         while True:
             st = time.time()
-            ticker = api.ticker(product_code=_product_code)
+            try:
+                ticker = api.ticker(product_code=_product_code)
+            except Exception as ex:
+                print(ex)
+                time.sleep(2)
+                continue
             tickers.append(ticker)
             count += 1
             print(count)
