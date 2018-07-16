@@ -33,29 +33,43 @@ try:
 except Exception as ex:
     raise Exception(ex)
 
+fldr = os.path.join(os.path.dirname(__file__), "data")
+if not os.path.exists(fldr):
+    os.mkdir(fldr)
+
+def save_to_json(fpath, lst):
+    result = dict(tickers=tickers)
+    with open(fpath, "w") as ff:
+        json.dump(result, ff, indent=4)
+        print("save to '{}'.".format(fpath))
+
 if __name__ == "__main__":
-    count = 0
+    count_end = 60
     interval = 1.0
     datetimeFmt = ""
     tickers = []
+    start = datetime.now().strftime("%Y%m%d%H%M%S")
+    count = 0
     try:
         while True:
             st = time.time()
-            ticker = api.ticker()
-            print(ticker)
+            ticker = api.ticker(product_code=_product_code)
             tickers.append(ticker)
+            count += 1
+            print(count)
+            if count == count_end:
+                end = datetime.now().strftime("%Y%m%d%H%M%S")
+                fname = "data_{}_to_{}.json".format(start, end)
+                save_to_json(os.path.join(fldr, fname), tickers)
+                tickers = []
+                start = end
+                count = 0
             elapsed = time.time() - st
-            print(elapsed)
             if interval > elapsed:
                 time.sleep(interval - elapsed)
                 
     except KeyboardInterrupt as ex:
         print(ex)
-        fname = "data_{}.json".format(datetime.now().strftime("%Y%m%d%H%M%S"))
-        fldr = os.path.join(os.path.dirname(__file__), "data")
-        if not os.path.exists(fldr):
-            os.mkdir(fldr)
-        result = dict(tickers=tickers)
-        with open(os.path.join(fldr, fname), "w") as ff:
-            json.dump(result, ff, indent=4)
-            print("save to '{}'.".format(os.path.join(fldr, fname)))
+        end = datetime.now().strftime("%Y%m%d%H%M%S")
+        fname = "data_{}_to_{}.json".format(start, end)
+        save_to_json(os.path.join(fldr, fname), tickers)
