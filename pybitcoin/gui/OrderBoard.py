@@ -62,6 +62,10 @@ class OrderBoard(QMainWindow):
         self._button_font_size = 13 # [pixel]
         # self._button_font_color = "black"
         self._button_bg_color = "#EBF5FB"
+
+        
+        self._chk_box_bg_color = "white"
+        # self._chk_txt_bg_color = "#D0D3D4"
         
         # self._txt_font_color = "black"
         self._txt_bg_color = "#D0D3D4"
@@ -362,6 +366,11 @@ class OrderBoard(QMainWindow):
         # BTCJPY
         ## Auto-manual flag checkbox
         self.chk_btcjpy = QCheckBox(group_values)
+        pal = QPalette()
+        pal.setColor(QPalette.Foreground, QColor(self._chk_box_bg_color))
+        # pal.setColor(QPalette.Active, QColor("white"))
+        self.chk_btcjpy.setPalette(pal)
+        # self.chk_btcjpy.setStyleSheet("background-color:{};".format(self._chk_bg_color))
         self.chk_btcjpy.setChecked(True)
         self.chk_btcjpy.resize(20, 20)
         self.chk_btcjpy.stateChanged.connect(self.setTxtBTCJPYEditState)
@@ -434,7 +443,7 @@ class OrderBoard(QMainWindow):
         # grid_values.addWidget(self.txt_goal, 3, 1)
         # grid_values.addWidget(label_goal_unit, 3, 2)
         
-        """ Expected values """
+        # """ Expected values """
         # group_expected, grid_expected = \
         #     make_groupbox_and_grid(self, self._window_width - 20, 50, 
         #                                "Expected values", self._groupbox_title_font_size, 5)
@@ -472,12 +481,6 @@ class OrderBoard(QMainWindow):
         group_current, grid_current = \
             make_groupbox_and_grid(self, self._window_width - 20, 100, 
                                    "Current State Control", self._groupbox_title_font_size, 5)
-        
-        # Order button
-        # self.btn_order = make_pushbutton(group_current, (self._window_width - 50)//2, 20, 
-        #                                        "Order", self._button_font_size, self.order, 
-        #                                        color=self._button_bg_color, isBold=True)
-        # self.btn_order.setEnabled(False)
 
         # Get last execution button
         self.btn_get_ex = make_pushbutton(group_current, (self._window_width - 50)//4, 20, 
@@ -502,24 +505,23 @@ class OrderBoard(QMainWindow):
                             color=self._button_bg_color, isBold=True)
         
         # construct the layout
-        # grid_current.addWidget(self.btn_order, 0, 0)
         grid_current.addWidget(self.btn_get_ex, 0, 0)
         grid_current.addWidget(self.btn_get_los, 0, 1)
         grid_current.addWidget(self.btn_get_interest, 0, 2)
         grid_current.addWidget(self.btn_cancel_all, 0, 3)
 
         """ Current state """
-        self.current_table_header = ["Key", "Interest", "Exec", "LastOrder"]
+        self.current_table_header = ["Interest", "Exec", "LastOrder"]
         self.current_table_key = ["date", "side", "size", "price", "state"]
         self.current_table = QTableWidget(self)
         self.current_table.setColumnCount(len(self.current_table_header))
         self.current_table.setRowCount(len(self.current_table_key))
+        self.current_table.setHorizontalHeaderLabels(self.current_table_header)
+        self.current_table.setVerticalHeaderLabels(self.current_table_key)
         font = self.current_table.font()
-        # font.setPointSize(self._label_font_size)
         font.setBold(True)
         self.current_table.setFont(font)
         self.current_table.setStyleSheet("background-color:{};".format("white"))
-        self.current_table.setHorizontalHeaderLabels(self.current_table_header)
         self.current_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.current_table.setFixedSize(self._window_width - 20, 150)
 
@@ -1136,9 +1138,8 @@ class OrderBoard(QMainWindow):
                 los = "" if self._last_order.get(key) is None else self._last_order.get(key)
                 loi = "" if self._order_interest.get(key) is None else self._order_interest.get(key)
                 col = [loi, lex, los]
-                self.current_table.setItem(ii, 0, QTableWidgetItem(key))
                 for jj in range(len(col)):
-                    self.current_table.setItem(ii, jj + 1, QTableWidgetItem(str(col[jj])))
+                    self.current_table.setItem(ii, jj, QTableWidgetItem(str(col[jj])))
         except Exception as ex:
             self.txt_log.append("@ updating CurrentTable:", ex)
             
