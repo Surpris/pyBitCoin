@@ -4,7 +4,6 @@
 import glob
 import json
 import os
-# import pickle
 import pybitflyer
 import time
 from datetime import datetime
@@ -12,7 +11,6 @@ from datetime import datetime
 _product_code = "FX_BTC_JPY"
 _api_dir = ".prv"
 
-# fldrname_for_key = getpass.getpass("folder for key:")
 if os.name == "nt":
     fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], _api_dir, "*"))[0]
 else:
@@ -73,8 +71,8 @@ if __name__ == "__main__":
             if interval > elapsed:
                 time.sleep(interval - elapsed)
                 
-    except KeyboardInterrupt as ex:
-        print(ex)
+    except KeyboardInterrupt:
+        print("Keyboard interruption.")
         end = datetime.now().strftime("%Y%m%d%H%M%S")
         fname = "data_{}_to_{}.json".format(start, end)
         save_to_json(os.path.join(fldr, fname), tickers)
