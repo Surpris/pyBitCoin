@@ -29,6 +29,9 @@ import pandas as pd
 import sys
 
 def main(fldr, file_count, remove_files):
+    if file_count == "all":
+        main_to_all(fldr, remove_files)
+        return
     file_count = int(file_count)
     print("compilatioin starts...")
     filelist_ = glob.glob(os.path.join(fldr, "*.json"))
@@ -41,7 +44,10 @@ def main(fldr, file_count, remove_files):
     
     filelist = filelist_[:file_count]
     date_start = os.path.splitext(filelist[0])[0].split("_")[-3]
-    date_end = os.path.splitext(filelist[-1])[0].split("_")[-1]
+    if file_count == 1:
+        date_end = os.path.splitext(filelist[0])[0].split("_")[-1]
+    else:
+        date_end = os.path.splitext(filelist[-1])[0].split("_")[-1]
     output_path = os.path.join(fldr, "data_{}_to_{}.csv".format(date_start, date_end))
     df = None
     header = None
@@ -67,8 +73,42 @@ def main(fldr, file_count, remove_files):
     df.to_csv(output_path)
     print("save to {}".format(output_path))
 
-    if remove_files:
-        print("remove files containing the compiled data...")
+    if remove_files == "True":
+        print("remove the original files...")
+        for fpath in filelist:
+            os.remove(fpath)
+
+def main_to_all(fldr, remove_files):
+    print("conversion starts...")
+    filelist = glob.glob(os.path.join(fldr, "*.json"))
+    for fpath in filelist:
+        print(fpath)
+        date_start = os.path.splitext(fpath)[0].split("_")[-3]
+        date_end = os.path.splitext(fpath)[0].split("_")[-1]
+        output_path = os.path.join(fldr, "data_{}_to_{}.csv".format(date_start, date_end))
+
+        df = None
+        header = None
+        ary = []
+        with open(fpath, "r") as ff:
+            tickers = json.load(ff)["tickers"]
+        if len(tickers) == 0:
+            continue
+        if not isinstance(tickers, list):
+            print("Unexpected format:{}. 'tickers' must have a type of list.".format(type(tickers)))
+        if header is None:
+            header = list(tickers[0].keys())
+        for ticker in tickers:
+            lst = []
+            for key in header:
+                lst.append(ticker[key])
+            ary.append(lst)
+        ary = np.array(ary)
+        df = pd.DataFrame(ary, columns=header)
+        df.to_csv(output_path)
+    print("conversion was finished.")
+    if remove_files == "True":
+        print("remove the original files...")
         for fpath in filelist:
             os.remove(fpath)
 
