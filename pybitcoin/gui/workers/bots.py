@@ -35,7 +35,7 @@ class Bot1(Worker):
         super().__init__(name=name, parent=parent)
         self._api = api
         self._product_code = product_code
-        self._btc_size = size
+        self.btc_size = size
         self._loss_cutting = loss_cutting
         self._profit_taking = profit_taking
         self._threshold = threshold
@@ -46,7 +46,11 @@ class Bot1(Worker):
         self._minute_to_expire = 10
         self._side = "WAIT" # state = "WAIT", "BUY", "SELL"
         self._tmp_side = "WAIT"
-
+        
+        self.init_data()
+    
+    @pyqtSlot()
+    def init_data(self):
         self._tick_count_max = 5
         self._tick_count = 0
         self._ltp_list = []
@@ -54,12 +58,15 @@ class Bot1(Worker):
         self._execution_list = []
         self._accepted_jpy = None
         self._accepted_id = None
-        self.data2 = None
+        self.data2 = None # ?
     
-    @pyqtSlot(object, object)
-    def process_bot(self, obj1, obj2):
+    @pyqtSlot(object)
+    def process_bot(self, obj1):
         self.data = obj1
-        self.data2 = obj2
+        if self.__DEBUG:
+            print("bot: process_bot")
+            print(self.data)
+        # self.data2 = obj2
         try:
             with QMutexLocker(self.mutex):
                 self._process()
@@ -69,28 +76,46 @@ class Bot1(Worker):
         self.finished_bot.emit()
     
     def _process(self):
-        if self.data is None or self.data2 is None:
+        # if self.data is None or self.data2 is None:
+        if self.data is None:
             return
         try:
             # Board information
             market_data = self.data["market_data"]
             if "timestamp" not in market_data.keys():
-                print("Failure in getting ticker.")
+                print("bot: failure in getting ticker.")
                 return
-            self.ltp_list.append(market_data["ltp"])
-            if self._side != "WAIT":
-                self._pnl.append(self.data["open_position_pnl"])
-            self._tick_count = min([self._tick_count_max, self._tick_count + 1])
+            self._ltp_list.append(market_data["ltp"])
+            collateral = self.data["collateral"]
+            self._pnl_list.append(collateral["open_position_pnl"])
+            self._tick_count += 1
             if self._tick_count > 0 and self._accepted_id is not None and self._accepted_jpy is None:
-                child_order = self._api.getchildorder(product_code=self._product_code, 
-                                                      child_order_acceptance_id=self._accepted_id)
-                pass
-            if self._tick_count == self._tick_count_max:
-                if self._side == "WAIT":
-                    self.judge_order()
+                if self.__DEBUG:
+                    print("bot: getchildorders")
+                    results = self._api.getchildorders(product_code=self._product_code)
                 else:
-                    self.judge_stop()
-            
+                    results = self._api.getchildorders(product_code=self._product_code, 
+                                                        child_order_acceptance_id=self._accepted_id)
+                if len(results) <= 0:
+                    print("bot: No order with id {}.".format(self._accepted_id))
+                    self._post_process()
+                    return
+                self._accepted_jpy = results[0]["price"]
+                if self.__DEBUG:
+                    print(results[0])
+                pass
+            if self._tick_count >= self._tick_count_max:
+                if self.__DEBUG:
+                    print("bot: judge")
+                else:
+                    if self._side == "WAIT":
+                        self.judge_order()
+                    else:
+                        self.judge_stop()
+            self._post_process()
+            if self.__DEBUG:
+                print("bot: tick_count:", self._tick_count)
+                print("bot: size of ltp list pnl list:", len(self._ltp_list), len(self._pnl_list))
         except Exception as ex:
             print(ex)
         
@@ -118,7 +143,7 @@ class Bot1(Worker):
         """
         if self._side != "WAIT": # In normal use this syntax always returns False.
             return
-        _, _2, ltp_mean, _3 = self._calc_statistics(self._ltp_list)
+        _, _2, ltp_mean, _3 = self._calc_statistics(self._ltp_list[-self._tick_count_max:])
         if ltp_mean <= self._ltp_list[0] - self._threshold:
             self._tmp_side = "SELL"
         elif ltp_mean > self._ltp_list[0] + self._threshold:
@@ -143,7 +168,7 @@ class Bot1(Worker):
             "product_code":self._product_code,
             "child_order_type":self._order_condition,
             "side":self._tmp_side,
-            "size":self._btc_size,
+            "size":self.btc_size,
             "minute_to_expire":self._minute_to_expire
         }
 
@@ -165,7 +190,7 @@ class Bot1(Worker):
         """
         if self._side == "WAIT": # In normal use this syntax always returns False.
             return
-        _, _2, pnl_mean, _3 = self._calc_statistics(self._pnl_list)
+        _, _2, pnl_mean, _3 = self._calc_statistics(self._pnl_list[-self._tick_count_max:])
         if self._pnl_list[-1] > self._cutting_ratio * self._profit_taking:
             if self._side == "BUY":
                 self._tmp_side = "SELL"
@@ -195,10 +220,15 @@ class Bot1(Worker):
         self._initialize_by_stop()
     
     def _initialize_by_stop(self):
-        self._pnl_list = []
+        # self._pnl_list = []
         self._tick_count = 0
         self._side = "WAIT"
         self._tmp_side = "WAIT"
+    
+    def _post_process(self):
+        if len(self._ltp_list) > 100:
+            self._ltp_list.pop(0)
+            self._pnl_list.pop(0)
 
 def main():
     pass

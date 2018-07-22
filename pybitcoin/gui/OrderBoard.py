@@ -34,10 +34,11 @@ class OrderBoard(QMainWindow):
         self.initInnerParameters()
         self.initAPI()
         self.initData()
-        self.initGui()
         # For QPushButton on QMassageBox
         str_ = "background-color:{0};".format(self._button_bg_color)
         self.initGetDataProcess()
+        self.initBot()
+        self.initGui()
     
     @footprint
     def initInnerParameters(self):
@@ -86,6 +87,7 @@ class OrderBoard(QMainWindow):
         # for API
         self._product_code = "FX_BTC_JPY"
         self._api_dir = ".prv"
+        self._api_timeout = 2.0
 
         # for setting BTCJPY
         self._magnitude = 20
@@ -98,7 +100,7 @@ class OrderBoard(QMainWindow):
         self._order_condition = "MARKET"
 
         """ Some other parameters """
-        self.__DEBUG = False
+        self.__DEBUG = True
         # self.__log_level = "None"
 
         # """ Load configuration from the setting file """
@@ -123,7 +125,11 @@ class OrderBoard(QMainWindow):
             except Exception as ex:
                 raise Exception(ex)
         
-        self._api = pybitflyer.API(api_key=self._api_key, api_secret=self._api_secret)
+        self._api = pybitflyer.API(
+            api_key=self._api_key, 
+            api_secret=self._api_secret, 
+            timeout=self._api_timeout
+        )
         self.__API_ERROR = False
         try:
             endpoint = "/v1/markets"
@@ -255,6 +261,12 @@ class OrderBoard(QMainWindow):
                             (self._window_width - 40)//4, 60, 
                             "Start", self._button_font_size, self.runAutoGetTicker, 
                             color=self._button_bg_color)
+        
+        self.btn_start_bot = \
+            make_pushbutton(group_boardinfo, 
+                            (self._window_width - 40)//4, 60, 
+                            "Bot", self._button_font_size, self.updateBotThreadState, 
+                            color=self._button_bg_color)
 
         # construct the layout
         grid_boardinfo.addWidget(label_best_ask, 0, 0, 1, 1)
@@ -269,6 +281,7 @@ class OrderBoard(QMainWindow):
         grid_boardinfo.addWidget(self.health_info, 0, 2, 1, 1)
         grid_boardinfo.addWidget(self.state_info, 1, 2, 1, 1)
         grid_boardinfo.addWidget(self.btn_start_ticker, 2, 2, 1, 1)
+        grid_boardinfo.addWidget(self.btn_start_bot, 3, 2, 1, 1)
 
         """ Bid / Ask / Order """
         group_bidask, grid_bidask = \
@@ -351,7 +364,7 @@ class OrderBoard(QMainWindow):
                                     isBold=self._label_font_bold, alignment=Qt.AlignLeft)
 
         self.txt_btc = QLineEdit(group_values)
-        self.txt_btc.setText("0")
+        self.txt_btc.setText("0.1")
         font = self.txt_btc.font()
         font.setPointSize(self._button_font_size)
         self.txt_btc.setFont(font)
@@ -1157,6 +1170,8 @@ class OrderBoard(QMainWindow):
 ######################## GetDataProess functions ########################
     @footprint
     def initGetDataProcess(self):
+        """initGetDataProcess(self) -> None
+        """
         self._timer_getData = QTimer()
         self._timer_getData.setInterval(int(self._get_data_interval*1000))
         self.stopTimer = False
@@ -1248,7 +1263,48 @@ class OrderBoard(QMainWindow):
             self.btn_start_ticker.setEnabled(True)
             self.btn_start_ticker.setText("Start")
             self.checkValidationOfOrder()
+        
+######################## Bot worker functions ########################
+    @footprint
+    def initBot(self):
+        """initBot(self) -> None
+        """
+        self._thread_Bot = QThread()
+        self._worker_Bot = Bot1(name="", parent=None, api=self._api, product_code=self._product_code, 
+                                size=0.1, loss_cutting=100., profit_taking=100.,
+                                threshold=10.0, DEBUG=self.__DEBUG)
+        
+        # Start.
+        self._thread_Bot.started.connect(self.connectBot)
 
+        # Finish.
+        self._thread_Bot.finished.connect(self.disconnectBot)
+
+        # Move.
+        self._worker_Bot.moveToThread(self._thread_Bot)
+    
+    @footprint
+    @pyqtSlot()
+    def updateBotThreadState(self):
+        if not self._thread_Bot.isRunning():
+            self._worker_Bot.btc_size = float(self.txt_btc.text())
+            self._worker_Bot.init_data()
+            self._thread_Bot.start()
+            self.btn_start_bot.setText("UnBot")
+        else:
+            self._thread_Bot.quit()
+            self.btn_start_bot.setText("Bot")
+
+    @footprint
+    @pyqtSlot()
+    def connectBot(self):
+        self._worker_getData.do_something2.connect(self._worker_Bot.process_bot)
+    
+    @footprint
+    @pyqtSlot()
+    def disconnectBot(self):
+        self._worker_getData.do_something2.disconnect()
+    
 ######################## Closing processes ########################
     @footprint
     def closeEvent(self, event):
@@ -1307,6 +1363,7 @@ class OrderBoard(QMainWindow):
 
 def main():
     app = QApplication([])
+    app.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "python.png")))
     mw = OrderBoard()
     mw.show()
     app.exec_()
