@@ -99,8 +99,14 @@ class OrderBoard(QMainWindow):
         self._order_type = "child"
         self._order_condition = "MARKET"
 
+        # for bot
+        self.bot_initial_size = 0.01 # [BTC]
+        self.loss_cutting=1.0 # [yen]
+        self.profit_taking=2.0 # [yen]
+        self.bot_threshold=10 # [yen]
+
         """ Some other parameters """
-        self.__DEBUG = True
+        self.__DEBUG = False
         # self.__log_level = "None"
 
         # """ Load configuration from the setting file """
@@ -1263,6 +1269,9 @@ class OrderBoard(QMainWindow):
             self.btn_start_ticker.setEnabled(True)
             self.btn_start_ticker.setText("Start")
             self.checkValidationOfOrder()
+            if self._thread_Bot.isRunning():
+                self._thread_Bot.quit()
+                self.btn_start_bot.setText("Bot")
         
 ######################## Bot worker functions ########################
     @footprint
@@ -1271,8 +1280,8 @@ class OrderBoard(QMainWindow):
         """
         self._thread_Bot = QThread()
         self._worker_Bot = Bot1(name="", parent=None, api=self._api, product_code=self._product_code, 
-                                size=0.1, loss_cutting=100., profit_taking=100.,
-                                threshold=10.0, DEBUG=self.__DEBUG)
+                                size=self.bot_initial_size, loss_cutting=self.loss_cutting, profit_taking=self.profit_taking,
+                                threshold=self.bot_threshold, DEBUG=self.__DEBUG)
         
         # Start.
         self._thread_Bot.started.connect(self.connectBot)
