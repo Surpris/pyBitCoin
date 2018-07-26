@@ -7,9 +7,9 @@ from PyQt5.QtCore import QMutex, QMutexLocker, pyqtSignal, QObject, pyqtSlot
 
 from .Worker import Worker
 
-class Bot1(Worker):
-    """Bot1
-    Bot class for OrderBoard
+class BotBase(Worker):
+    """BotBase
+    Base class of Bot for OrderBoard
     """
     # do_something_bot = pyqtSignal(object)
     finished_bot = pyqtSignal()
@@ -41,7 +41,7 @@ class Bot1(Worker):
         self._threshold = threshold
         self.__DEBUG = DEBUG
 
-        self._cutting_ratio = 2.0
+        self._cutting_ratio = 5.0
         self._order_condition = "MARKET"
         self._minute_to_expire = 10
         self._side = "WAIT" # state = "WAIT", "BUY", "SELL"
@@ -51,8 +51,10 @@ class Bot1(Worker):
     
     @pyqtSlot()
     def init_data(self):
-        self._tick_count_max = 5
+        self._tick_count_order = 4
+        self._tick_count_stop = 5
         self._tick_count = 0
+        self._nbr_of_tickers = 100
         self._ltp_list = []
         self._pnl_list = []
         self._execution_list = []
@@ -103,15 +105,16 @@ class Bot1(Worker):
                 self._accepted_jpy = results[0]["price"]
                 if self.__DEBUG:
                     print(results[0])
-                pass
-            if self._tick_count >= self._tick_count_max:
+            
+            if self._side == "WAIT" and self._tick_count >= self._tick_count_order:
                 if self.__DEBUG:
                     print("bot: judge")
-                else:
-                    if self._side == "WAIT":
-                        self.judge_order()
-                    else:
-                        self.judge_stop()
+                self.judge_order()
+            elif self._tick_count >= self._tick_count_stop:
+                if self.__DEBUG:
+                    print("bot: judge")
+                self.judge_stop()
+            
             self._post_process()
             if self.__DEBUG:
                 print("bot: tick_count:", self._tick_count)
@@ -143,11 +146,17 @@ class Bot1(Worker):
         """
         if self._side != "WAIT": # In normal use this syntax always returns False.
             return
-        _, _2, ltp_mean, _3 = self._calc_statistics(self._ltp_list[-self._tick_count_max:])
-        if ltp_mean <= self._ltp_list[0] - self._threshold:
-            self._tmp_side = "SELL"
-        elif ltp_mean > self._ltp_list[0] + self._threshold:
+        self._judge_order_side()
+        if self._tmp_side != "WAIT":
+            success = self.send_order()
+            if success:
+                self._initialize_by_order()
+    
+    def _judge_order_side(self):
+        if self._ltp_list[-1] >= self._ltp_list[-self._tick_count_order] + self._threshold:
             self._tmp_side = "BUY"
+        elif self._ltp_list[-1] <= self._ltp_list[-self._tick_count_order] - self._threshold:
+            self._tmp_side = "SELL"
         else:
             if self.__DEBUG:
                 print("not satisfied with order condition.")
@@ -155,8 +164,6 @@ class Bot1(Worker):
         if self.__DEBUG:
             print("side:", self._tmp_side)
             return
-        self.send_order()
-        self._initialize_by_order()
 
     def send_order(self):
         """send_order(self) -> None
@@ -176,49 +183,42 @@ class Bot1(Worker):
             result = self._api.sendchildorder(**params)
             print(result)
             self._execution_list.append(result)
+            return True
         except Exception as ex:
             print("@ sending order:", ex)
             self._tmp_side = self._side
+            return False
     
     def _initialize_by_order(self):
         self._tick_count = 0
         self._side = self._tmp_side
-
+    
     def judge_stop(self):
         """judge_stop(self)
         judge whether a stop order should be sent.
         """
         if self._side == "WAIT": # In normal use this syntax always returns False.
             return
-        _, _2, pnl_mean, _3 = self._calc_statistics(self._pnl_list[-self._tick_count_max:])
-        if self._pnl_list[-1] > self._cutting_ratio * self._profit_taking:
-            if self._side == "BUY":
-                self._tmp_side = "SELL"
-            elif self._side == "SELL":
-                self._tmp_side = "BUY"
-            self.send_order()
-            self._initialize_by_stop()
-            return
-        if pnl_mean > - self._loss_cutting and pnl_mean < self._profit_taking:
+        if self._judge_stop():
             if self.__DEBUG:
-                print("not satisfied with order ")
-            return
-        if self.__DEBUG:
+                if self._side == "BUY":
+                    self._tmp_side = "SELL"
+                elif self._side == "SELL":
+                    self._tmp_side = "BUY"
+                print("signal")
+                self._initialize_by_stop()
+                return
             if self._side == "BUY":
                 self._tmp_side = "SELL"
-            elif self._side == "SELL":
+            else:
                 self._tmp_side = "BUY"
-            print("signal")
-            self._initialize_by_stop()
-            return
-        
-        if self._side == "BUY":
-            self._tmp_side = "SELL"
-        elif self._side == "SELL":
-            self._tmp_side = "BUY"
-        self.send_order()
-        self._initialize_by_stop()
+            success =  self.send_order()
+            if success:
+                self._initialize_by_stop()
     
+    def _judge_stop(self):
+        return True
+
     def _initialize_by_stop(self):
         # self._pnl_list = []
         self._tick_count = 0
@@ -226,9 +226,96 @@ class Bot1(Worker):
         self._tmp_side = "WAIT"
     
     def _post_process(self):
-        if len(self._ltp_list) > 100:
+        if len(self._ltp_list) > self._nbr_of_tickers:
             self._ltp_list.pop(0)
             self._pnl_list.pop(0)
+
+class Bot1(BotBase):
+    """Bot1
+    Bot class for OrderBoard
+    """
+
+    def __init__(self, name="", parent=None, api=None, 
+                 product_code="FX_BTC_JPY", size=0.01, loss_cutting=0.0, profit_taking=0.0,
+                 threshold=0.0, DEBUG=False):
+        """__init__(self, *args, **kwargs) -> None
+        initialize this class
+
+        Parameters
+        ----------
+        name : str, optional (default : '')
+        parent : QtWigdets or class overtaking QtWidgets, optional (default : None)
+        api : pybitflyer.API, optional (default : None)
+        product_code : str, optional (dafault : None)
+        size : float, optional (default : 0.01)
+        loss_cutting : float, optional (default : 0.0)
+        profit_taking : float, optional (default : 0.0)
+        threshold : float, optional (default : 0.0)
+        DEBUG : bool, optional (default : False)
+        """
+        super().__init__(name=name, parent=parent, api=api, 
+                 product_code=product_code, size=size, loss_cutting=loss_cutting, 
+                 profit_taking=profit_taking, threshold=threshold, DEBUG=DEBUG)
+    
+    def _judge_order_side(self):
+        if self._side != "WAIT": # In normal use this syntax always returns False.
+            return
+        _, _2, ltp_mean, _3 = self._calc_statistics(self._ltp_list[-self._tick_count_order:])
+        if ltp_mean <= self._ltp_list[-self._tick_count_order] - self._threshold:
+            self._tmp_side = "SELL"
+        elif ltp_mean > self._ltp_list[self._tick_count_order] + self._threshold:
+            self._tmp_side = "BUY"
+        else:
+            if self.__DEBUG:
+                print("not satisfied with order condition.")
+            return
+        if self.__DEBUG:
+            print("side:", self._tmp_side)
+            return
+
+    def _judge_stop(self):
+        _, _2, pnl_mean, _3 = self._calc_statistics(self._pnl_list[-self._tick_count_stop:])
+        if self._pnl_list[-1] > self._cutting_ratio * self._profit_taking:
+            return True
+        elif pnl_mean > - self._loss_cutting and pnl_mean < self._profit_taking:
+            if self.__DEBUG:
+                print("not satisfied with order ")
+            return False
+        else:
+            return True
+
+class Bot2(BotBase):
+    """Bot2
+    Bot class for OrderBoard
+    """
+
+    def __init__(self, name="", parent=None, api=None, 
+                 product_code="FX_BTC_JPY", size=0.01, loss_cutting=0.0, profit_taking=0.0,
+                 threshold=0.0, DEBUG=False):
+        """__init__(self, *args, **kwargs) -> None
+        initialize this class
+
+        Parameters
+        ----------
+        name : str, optional (default : '')
+        parent : QtWigdets or class overtaking QtWidgets, optional (default : None)
+        api : pybitflyer.API, optional (default : None)
+        product_code : str, optional (dafault : None)
+        size : float, optional (default : 0.01)
+        loss_cutting : float, optional (default : 0.0)
+        profit_taking : float, optional (default : 0.0)
+        threshold : float, optional (default : 0.0)
+        DEBUG : bool, optional (default : False)
+        """
+        super().__init__(name=name, parent=parent, api=api, 
+                 product_code=product_code, size=size, loss_cutting=loss_cutting, 
+                 profit_taking=profit_taking, threshold=threshold, DEBUG=DEBUG)
+    
+    def _judge_order_side(self):
+        pass
+
+    def _judge_stop(self):
+        return True
 
 def main():
     pass
