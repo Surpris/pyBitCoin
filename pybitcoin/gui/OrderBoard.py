@@ -20,7 +20,7 @@ from PyQt5 import  QtGui, QtCore
 
 from utils import footprint
 from utils import make_groupbox_and_grid, make_label, make_pushbutton
-from workers import GetTickerWorker, Bot1
+from workers import GetTickerWorker, Bot2
 
 class OrderBoard(QMainWindow):
     """OrderBoard class (subclass of QMainWindow)
@@ -101,9 +101,9 @@ class OrderBoard(QMainWindow):
 
         # for bot
         self.bot_initial_size = 0.01 # [BTC]
-        self.loss_cutting=1.0 # [yen]
-        self.profit_taking=2.0 # [yen]
-        self.bot_threshold=10 # [yen]
+        self.loss_cutting=10.0 # [yen]
+        self.profit_taking=5.0 # [yen]
+        self.bot_threshold=20 # [yen]
 
         """ Some other parameters """
         self.__DEBUG = False
@@ -1279,7 +1279,7 @@ class OrderBoard(QMainWindow):
         """initBot(self) -> None
         """
         self._thread_Bot = QThread()
-        self._worker_Bot = Bot1(name="", parent=None, api=self._api, product_code=self._product_code, 
+        self._worker_Bot = Bot2(name="", parent=None, api=self._api, product_code=self._product_code, 
                                 size=self.bot_initial_size, loss_cutting=self.loss_cutting, profit_taking=self.profit_taking,
                                 threshold=self.bot_threshold, DEBUG=self.__DEBUG)
         
@@ -1296,7 +1296,8 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def updateBotThreadState(self):
         if not self._thread_Bot.isRunning():
-            self._worker_Bot.btc_size = float(self.txt_btc.text())
+            # self._worker_Bot.btc_size = float(self.txt_btc.text())
+            self.txt_log.append("current bot btc size: {}".format(self._worker_Bot.btc_size))
             self._worker_Bot.init_data()
             self._thread_Bot.start()
             self.btn_start_bot.setText("UnBot")

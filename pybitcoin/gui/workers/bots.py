@@ -39,14 +39,15 @@ class BotBase(Worker):
         self._loss_cutting = loss_cutting
         self._profit_taking = profit_taking
         self._threshold = threshold
-        self.__DEBUG = DEBUG
+        self._DEBUG = DEBUG
+
+        self._ema_points = 20
 
         self._cutting_ratio = 5.0
         self._order_condition = "MARKET"
         self._minute_to_expire = 10
         self._side = "WAIT" # state = "WAIT", "BUY", "SELL"
         self._tmp_side = "WAIT"
-        
         self.init_data()
     
     @pyqtSlot()
@@ -58,6 +59,8 @@ class BotBase(Worker):
         self._ltp_list = []
         self._pnl_list = []
         self._execution_list = []
+        self._ema_list = []
+        self._alpha = 2.0 / (self._ema_points + 1.0)
         self._accepted_jpy = None
         self._accepted_id = None
         self.data2 = None # ?
@@ -65,7 +68,7 @@ class BotBase(Worker):
     @pyqtSlot(object)
     def process_bot(self, obj1):
         self.data = obj1
-        if self.__DEBUG:
+        if self._DEBUG:
             print("bot: process_bot")
             print(self.data)
         # self.data2 = obj2
@@ -90,9 +93,10 @@ class BotBase(Worker):
             self._ltp_list.append(market_data["ltp"])
             collateral = self.data["collateral"]
             self._pnl_list.append(collateral["open_position_pnl"])
+            self._calc_ema()
             self._tick_count += 1
             if self._tick_count > 0 and self._accepted_id is not None and self._accepted_jpy is None:
-                if self.__DEBUG:
+                if self._DEBUG:
                     print("bot: getchildorders")
                     results = self._api.getchildorders(product_code=self._product_code)
                 else:
@@ -103,20 +107,20 @@ class BotBase(Worker):
                     self._post_process()
                     return
                 self._accepted_jpy = results[0]["price"]
-                if self.__DEBUG:
+                if self._DEBUG:
                     print(results[0])
             
             if self._side == "WAIT" and self._tick_count >= self._tick_count_order:
-                if self.__DEBUG:
+                if self._DEBUG:
                     print("bot: judge")
                 self.judge_order()
             elif self._tick_count >= self._tick_count_stop:
-                if self.__DEBUG:
+                if self._DEBUG:
                     print("bot: judge")
                 self.judge_stop()
             
             self._post_process()
-            if self.__DEBUG:
+            if self._DEBUG:
                 print("bot: tick_count:", self._tick_count)
                 print("bot: size of ltp list pnl list:", len(self._ltp_list), len(self._pnl_list))
         except Exception as ex:
@@ -140,6 +144,13 @@ class BotBase(Worker):
         ary = np.array(lst)
         return ary.max(), ary.min(), ary.mean(), ary.std()
     
+    def _calc_ema(self):
+        if len(self._ema_list) == 0:
+            self._ema_list.append(self._ltp_list[0])
+        else:
+            ema_ = self._alpha * self._ltp_list[-1] + (1. - self._alpha) * self._ema_list[-1]
+            self._ema_list.append(ema_)
+    
     def judge_order(self):
         """judge_order(self) -> None
         judge whether a child order should be sent.
@@ -158,10 +169,10 @@ class BotBase(Worker):
         elif self._ltp_list[-1] <= self._ltp_list[-self._tick_count_order] - self._threshold:
             self._tmp_side = "SELL"
         else:
-            if self.__DEBUG:
+            if self._DEBUG:
                 print("not satisfied with order condition.")
             return
-        if self.__DEBUG:
+        if self._DEBUG:
             print("side:", self._tmp_side)
             return
 
@@ -200,7 +211,7 @@ class BotBase(Worker):
         if self._side == "WAIT": # In normal use this syntax always returns False.
             return
         if self._judge_stop():
-            if self.__DEBUG:
+            if self._DEBUG:
                 if self._side == "BUY":
                     self._tmp_side = "SELL"
                 elif self._side == "SELL":
@@ -266,10 +277,10 @@ class Bot1(BotBase):
         elif ltp_mean > self._ltp_list[self._tick_count_order] + self._threshold:
             self._tmp_side = "BUY"
         else:
-            if self.__DEBUG:
+            if self._DEBUG:
                 print("not satisfied with order condition.")
             return
-        if self.__DEBUG:
+        if self._DEBUG:
             print("side:", self._tmp_side)
             return
 
@@ -278,7 +289,7 @@ class Bot1(BotBase):
         if self._pnl_list[-1] > self._cutting_ratio * self._profit_taking:
             return True
         elif pnl_mean > - self._loss_cutting and pnl_mean < self._profit_taking:
-            if self.__DEBUG:
+            if self._DEBUG:
                 print("not satisfied with order ")
             return False
         else:
@@ -312,10 +323,28 @@ class Bot2(BotBase):
                  profit_taking=profit_taking, threshold=threshold, DEBUG=DEBUG)
     
     def _judge_order_side(self):
-        pass
+        diff_ltp = sum(self._ltp_list[-self._tick_count_order:]) - \
+                   self._tick_count_order * self._ltp_list[-self._tick_count_order]
+        if diff_ltp >= self._threshold:
+            self._tmp_side = "BUY"
+        elif diff_ltp <= -self._threshold:
+            self._tmp_side = "SELL"
+        else:
+            if self._DEBUG:
+                print("not satisfied with order condition.")
+            return
+        if self._DEBUG:
+            print("side:", self._tmp_side)
+            return
 
     def _judge_stop(self):
-        return True
+        sum_pnl = sum(self._pnl_list[-self._tick_count_stop:])
+        if sum_pnl >= self._profit_taking or sum_pnl <= - self._loss_cutting:
+            return True
+        elif self._pnl_list[-1] > self._cutting_ratio * self._profit_taking:
+            return True
+        else:
+            return False
 
 def main():
     pass
