@@ -377,8 +377,11 @@ class Bot3(BotBase):
                  product_code=product_code, size=size, loss_cutting=loss_cutting, 
                  profit_taking=profit_taking, threshold=threshold, DEBUG=DEBUG)
         
+        self._tick_count_order = 20
+        self._tick_count_stop = 5
         self._cutting_ratio = 1.0
         self._ema2_points = 40
+        self._alpha2 = 2.0 / (self._ema2_points + 1.0)
         self._ema2_list = []
     
     def analyze(self):
@@ -393,13 +396,10 @@ class Bot3(BotBase):
             self._ema2_list.append(ema_)
     
     def _judge_order_side(self):
-        # if self._ltp_list[-1] > self._ema_list[-1] + self._threshold
-        diff_ltp = sum(self._ltp_list[-self._tick_count_order:]) - \
-                   self._tick_count_order * self._ltp_list[-self._tick_count_order]
-        if diff_ltp >= self._threshold:
-            self._tmp_side = "BUY"
-        elif diff_ltp <= -self._threshold:
+        if self._ltp_list[-2] > self._ema_list[-2] and self._ltp_list[-1] <= self._ema_list[-1]:
             self._tmp_side = "SELL"
+        elif self._ltp_list[-2] <= self._ema_list[-2] and self._ltp_list[-1] > self._ema_list[-1]:
+            self._tmp_side = "BUY"
         else:
             if self._DEBUG:
                 print("not satisfied with order condition.")
@@ -409,10 +409,10 @@ class Bot3(BotBase):
             return
 
     def _judge_stop(self):
-        sum_pnl = sum(self._pnl_list[-self._tick_count_stop:])
-        if sum_pnl >= self._profit_taking or sum_pnl <= - self._loss_cutting:
+        sum_pnl = sum(self._pnl_list[-self._tick_count_stop:]) / self._tick_count_stop
+        if sum_pnl <= - self._loss_cutting:
             return True
-        elif self._pnl_list[-1] > self._cutting_ratio * self._profit_taking:
+        elif self._pnl_list[-1] > self._profit_taking:
             return True
         else:
             return False
