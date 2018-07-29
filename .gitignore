@@ -144,3 +144,4 @@ tmp/
 temp/
 models/
 _html/
+config.json
