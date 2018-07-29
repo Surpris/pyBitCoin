@@ -106,12 +106,31 @@ class OrderBoard(QMainWindow):
         self.bot_threshold=20 # [yen]
 
         """ Some other parameters """
-        self.__DEBUG = False
+        self.DEBUG = False
         # self.__log_level = "None"
 
-        # """ Load configuration from the setting file """
-        # if os.path.exists(os.path.join(os.path.dirname(__file__), "config.json")):
-        #     self.loadConfig()
+        """ Load configuration from the setting file """
+        self._config_path = os.path.join(os.path.dirname(__file__), "config.json")
+        if os.path.exists(self._config_path):
+            self.__loadConfig()
+    
+    def __loadConfig(self):
+        """__loadConfig(self) -> None
+        load configuration
+        """
+        target_type = [int, str, float, list, bool]
+        exclude_key = ["_config_path"]
+        with open(self._config_path, "r") as ff:
+            config = json.load(ff)
+        for key in self.__dict__.keys():
+            if type(self.__dict__[key]) not in target_type:
+                continue
+            if key in exclude_key:
+                continue
+            if key[0] == "_":
+                self.__dict__[key] = config[key[1:]]
+            else:
+                self.__dict__[key] = config[key]
 
     @footprint
     def initAPI(self):
@@ -192,7 +211,7 @@ class OrderBoard(QMainWindow):
         self.initMainWidget()
         self.setMenuBar()
 
-        if self.__DEBUG:
+        if self.DEBUG:
             self.setWindowTitle("Order Board(Emulate)")
         else:
             self.setWindowTitle("Order Board")
@@ -861,7 +880,7 @@ class OrderBoard(QMainWindow):
 
         }
         try:
-            if self.__DEBUG:
+            if self.DEBUG:
                 print(params)
                 self._execution_count += 1
                 result = {"parent_order_acceptance_id":str(self._execution_count)}
@@ -921,7 +940,7 @@ class OrderBoard(QMainWindow):
             params["price"] = btcjpy
 
         try:
-            if self.__DEBUG:
+            if self.DEBUG:
                 print(params)
                 self._execution_count += 1
                 result = {"child_order_acceptance_id":str(self._execution_count)}
@@ -1281,7 +1300,7 @@ class OrderBoard(QMainWindow):
         self._thread_Bot = QThread()
         self._worker_Bot = Bot3(name="", parent=None, api=self._api, product_code=self._product_code, 
                                 size=self.bot_initial_size, loss_cutting=self.loss_cutting, profit_taking=self.profit_taking,
-                                threshold=self.bot_threshold, DEBUG=self.__DEBUG)
+                                threshold=self.bot_threshold, DEBUG=self.DEBUG)
         
         # Start.
         self._thread_Bot.started.connect(self.connectBot)
@@ -1344,6 +1363,7 @@ class OrderBoard(QMainWindow):
                 self.stopAllTimers()
                 self.saveExecutions()
                 self.deleteTempExecutions()
+                self.toJson()
                 event.accept()
             else:
                 event.ignore()
@@ -1364,12 +1384,42 @@ class OrderBoard(QMainWindow):
         """deleteTempExecutions(self) -> None
         delete files including each temporary execution
         """
-        if not self.__DEBUG:
+        if not self.DEBUG:
             tmpfldr = os.path.join(os.path.dirname(__file__), "tmp")
             if os.path.exists(tmpfldr):
                 flist = glob.glob(os.path.join(tmpfldr, "*"))
                 for fpath in flist:
                     os.remove(fpath)
+    
+    @footprint
+    def toJson(self):
+        """toJson(self) -> None
+        serialize configuration
+        """
+        try:
+            target_type = [int, str, float, list, bool]
+            exclude_key = [
+                "_config_path",
+                "_api_key", "_api_secret", "_OrderBoard__API_ERROR", 
+                "_executions", "_contracts", "_execution_count",
+                "current_table_header", "current_table_key"
+            ]
+            config = {}
+            for key in self.__dict__.keys():
+                if type(self.__dict__[key]) not in target_type:
+                    continue
+                if key in exclude_key:
+                    continue
+                if key[0] == "_":
+                    config[key[1:]] = self.__dict__[key]
+                else:
+                    config[key] = self.__dict__[key]
+            fpath = os.path.join(os.path.dirname(__file__), "config.json")
+            with open(fpath, "w") as ff:
+                json.dump(config, ff, indent=4)
+        except Exception as ex:
+            print(ex)
+        
 
 def main():
     app = QApplication([])
