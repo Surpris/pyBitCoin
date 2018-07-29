@@ -42,6 +42,7 @@ class BotBase(Worker):
         self._DEBUG = DEBUG
 
         self._ema_points = 20
+        self._sma_points = 20
 
         self._cutting_ratio = 5.0
         self._order_condition = "MARKET"
@@ -93,7 +94,7 @@ class BotBase(Worker):
             self._ltp_list.append(market_data["ltp"])
             collateral = self.data["collateral"]
             self._pnl_list.append(collateral["open_position_pnl"])
-            self._calc_ema()
+            self.analyze()
             self._tick_count += 1
             if self._tick_count > 0 and self._accepted_id is not None and self._accepted_jpy is None:
                 if self._DEBUG:
@@ -125,6 +126,9 @@ class BotBase(Worker):
                 print("bot: size of ltp list pnl list:", len(self._ltp_list), len(self._pnl_list))
         except Exception as ex:
             print(ex)
+    
+    def analyze(self):
+        self._calc_ema()
         
     def _calc_statistics(self, lst):
         """_calc_statistics(self) -> float, float, float, float
@@ -323,6 +327,73 @@ class Bot2(BotBase):
                  profit_taking=profit_taking, threshold=threshold, DEBUG=DEBUG)
     
     def _judge_order_side(self):
+        diff_ltp = sum(self._ltp_list[-self._tick_count_order:]) - \
+                   self._tick_count_order * self._ltp_list[-self._tick_count_order]
+        if diff_ltp >= self._threshold:
+            self._tmp_side = "BUY"
+        elif diff_ltp <= -self._threshold:
+            self._tmp_side = "SELL"
+        else:
+            if self._DEBUG:
+                print("not satisfied with order condition.")
+            return
+        if self._DEBUG:
+            print("side:", self._tmp_side)
+            return
+
+    def _judge_stop(self):
+        sum_pnl = sum(self._pnl_list[-self._tick_count_stop:])
+        if sum_pnl >= self._profit_taking or sum_pnl <= - self._loss_cutting:
+            return True
+        elif self._pnl_list[-1] > self._cutting_ratio * self._profit_taking:
+            return True
+        else:
+            return False
+
+class Bot3(BotBase):
+    """Bot3
+    Bot class for OrderBoard
+    """
+
+    def __init__(self, name="", parent=None, api=None, 
+                 product_code="FX_BTC_JPY", size=0.01, loss_cutting=0.0, profit_taking=0.0,
+                 threshold=0.0, DEBUG=False):
+        """__init__(self, *args, **kwargs) -> None
+        initialize this class
+
+        Parameters
+        ----------
+        name : str, optional (default : '')
+        parent : QtWigdets or class overtaking QtWidgets, optional (default : None)
+        api : pybitflyer.API, optional (default : None)
+        product_code : str, optional (dafault : None)
+        size : float, optional (default : 0.01)
+        loss_cutting : float, optional (default : 0.0)
+        profit_taking : float, optional (default : 0.0)
+        threshold : float, optional (default : 0.0)
+        DEBUG : bool, optional (default : False)
+        """
+        super().__init__(name=name, parent=parent, api=api, 
+                 product_code=product_code, size=size, loss_cutting=loss_cutting, 
+                 profit_taking=profit_taking, threshold=threshold, DEBUG=DEBUG)
+        
+        self._cutting_ratio = 1.0
+        self._ema2_points = 40
+        self._ema2_list = []
+    
+    def analyze(self):
+        self._calc_ema()
+        self._calc_ema2()
+    
+    def _calc_ema2(self):
+        if len(self._ema2_list) == 0:
+            self._ema2_list.append(self._ltp_list[0])
+        else:
+            ema_ = self._alpha * self._ltp_list[-1] + (1. - self._alpha) * self._ema2_list[-1]
+            self._ema2_list.append(ema_)
+    
+    def _judge_order_side(self):
+        # if self._ltp_list[-1] > self._ema_list[-1] + self._threshold
         diff_ltp = sum(self._ltp_list[-self._tick_count_order:]) - \
                    self._tick_count_order * self._ltp_list[-self._tick_count_order]
         if diff_ltp >= self._threshold:
