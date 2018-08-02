@@ -1,6 +1,7 @@
 #! /usr/bin/python3
 #-*- coding: utf-8 -*-
 
+import argparse
 import glob
 import json
 import os
@@ -40,17 +41,18 @@ if not os.path.exists(fldr):
     os.mkdir(fldr)
 
 def save_to_json(fpath, lst):
-    result = dict(tickers=tickers)
+    result = dict(tickers=lst)
     with open(fpath, "w") as ff:
         json.dump(result, ff, indent=4)
         print("save to '{}'.".format(fpath))
 
-if __name__ == "__main__":
-    count_end = 60
+def main(count_end=None):
+    if count_end == None:
+        count_end = 3600
     interval = 1.0
-    datetimeFmt = ""
+    datetimeFmt = "%Y%m%d%H%M%S"
     tickers = []
-    start = datetime.now().strftime("%Y%m%d%H%M%S")
+    start = datetime.now().strftime(datetimeFmt)
     count = 0
     try:
         while True:
@@ -65,7 +67,7 @@ if __name__ == "__main__":
             count += 1
             print(count)
             if count == count_end:
-                end = datetime.now().strftime("%Y%m%d%H%M%S")
+                end = datetime.now().strftime(datetimeFmt)
                 fname = "data_{}_to_{}.json".format(start, end)
                 save_to_json(os.path.join(fldr, fname), tickers)
                 tickers = []
@@ -77,6 +79,12 @@ if __name__ == "__main__":
                 
     except KeyboardInterrupt:
         print("Keyboard interruption.")
-        end = datetime.now().strftime("%Y%m%d%H%M%S")
+        end = datetime.now().strftime(datetimeFmt)
         fname = "data_{}_to_{}.json".format(start, end)
         save_to_json(os.path.join(fldr, fname), tickers)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="A script of getting ticker.")
+    parser.add_argument('-count', action='store', dest='count', type=int, default=3600)
+    argmnt = parser.parse_args()
+    main(argmnt.count)
