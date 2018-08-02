@@ -23,7 +23,11 @@ with open(fpath, "r", encoding="utf-8") as ff:
     except Exception as ex:
         print(ex)
 
-api = pybitflyer.API(api_key=_api_key, api_secret=_api_secret)
+api = pybitflyer.API(
+    api_key=_api_key, 
+    api_secret=_api_secret, 
+    timeout=2.0
+)
 try:
     endpoint = "/v1/markets"
     _ = api.request(endpoint)
