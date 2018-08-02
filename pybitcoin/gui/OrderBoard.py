@@ -22,6 +22,8 @@ from utils import footprint
 from utils import make_groupbox_and_grid, make_label, make_pushbutton
 from workers import GetTickerWorker, Bot3
 
+DEBUG = False
+
 class OrderBoard(QMainWindow):
     """OrderBoard class (subclass of QMainWindow)
     """
@@ -102,11 +104,11 @@ class OrderBoard(QMainWindow):
         # for bot
         self.bot_initial_size = 0.01 # [BTC]
         self.loss_cutting = 10.0 # [yen]
-        self.profit_taking = 4.0 # [yen]
+        self.profit_taking = 20.0 # [yen]
         self.bot_threshold=20 # [yen]
 
         """ Some other parameters """
-        self.DEBUG = False
+        self.DEBUG = DEBUG
         # self.__log_level = "None"
 
         """ Load configuration from the setting file """
@@ -427,42 +429,6 @@ class OrderBoard(QMainWindow):
 
         label_jpy_unit = make_label(group_values, "yen", self._label_font_size, 
                                     isBold=self._label_font_bold, alignment=Qt.AlignLeft)
-        
-        # # Stop value (relative)
-        # label_stop = make_label(group_values, "Stop: ", self._label_font_size, 
-        #                         isBold=self._label_font_bold, alignment=Qt.AlignLeft)
-        
-        # self.txt_stop = QLineEdit(group_values)
-        # self.txt_stop.setText(self._default_value)
-        # font = self.txt_stop.font()
-        # font.setPointSize(self._button_font_size)
-        # self.txt_stop.setFont(font)
-        # self.txt_stop.resize((self._window_width - 50)//3, 16)
-        # self.txt_stop.setStyleSheet("background-color:{};".format(self._txt_bg_color))
-        # self.txt_stop.setValidator(QIntValidator())
-        # # self.txt_stop.textChanged.connect(self.updateExpectedStop)
-        # self.txt_stop.setReadOnly(True)
-
-        # label_stop_unit = make_label(group_values, "yen", self._label_font_size, 
-        #                              isBold=self._label_font_bold, alignment=Qt.AlignLeft)
-
-        # # Goal value (relative)
-        # label_goal = make_label(group_values, "Goal: ", self._label_font_size, 
-        #                         isBold=self._label_font_bold, alignment=Qt.AlignLeft)
-        
-        # self.txt_goal = QLineEdit(group_values)
-        # self.txt_goal.setText(self._default_value)
-        # font = self.txt_goal.font()
-        # font.setPointSize(self._button_font_size)
-        # self.txt_goal.setFont(font)
-        # self.txt_goal.resize((self._window_width - 50)//3, 16)
-        # self.txt_goal.setStyleSheet("background-color:{};".format(self._txt_bg_color))
-        # self.txt_goal.setValidator(QIntValidator())
-        # # self.txt_goal.textChanged.connect(self.updateExpectedGoal)
-        # self.txt_goal.setReadOnly(True)
-
-        # label_goal_unit = make_label(group_values, "yen", self._label_font_size, 
-        #                              isBold=self._label_font_bold, alignment=Qt.AlignLeft)
 
         # construct the layout
         grid_values.addWidget(label_btc_size, 0, 0)
@@ -472,48 +438,6 @@ class OrderBoard(QMainWindow):
         grid_values.addWidget(self.chk_btcjpy, 1, 0)
         grid_values.addWidget(self.txt_btcjpy, 1, 1)
         grid_values.addWidget(label_jpy_unit, 1, 2)
-
-        # grid_values.addWidget(label_stop, 2, 0)
-        # grid_values.addWidget(self.txt_stop, 2, 1)
-        # grid_values.addWidget(label_stop_unit, 2, 2)
-
-        # grid_values.addWidget(label_goal, 3, 0)
-        # grid_values.addWidget(self.txt_goal, 3, 1)
-        # grid_values.addWidget(label_goal_unit, 3, 2)
-        
-        # """ Expected values """
-        # group_expected, grid_expected = \
-        #     make_groupbox_and_grid(self, self._window_width - 20, 50, 
-        #                                "Expected values", self._groupbox_title_font_size, 5)
-        
-        # Expected current value
-        # label_expected_current = make_label(group_expected, "Expected: ", self._label_font_size, 
-        #                                           isBold=self._label_font_bold, alignment=Qt.AlignRight)
-        
-        # self.expected_current = make_label(group_expected, self._default_value, self._label_font_size, 
-        #                                          isBold=self._label_font_bold, alignment=Qt.AlignLeft)
-
-        # Expected stop value
-        # label_expected_stop = make_label(group_expected, "Stop: ", self._label_font_size, 
-        #                                        isBold=self._label_font_bold, alignment=Qt.AlignRight)
-        
-        # self.expected_stop = make_label(group_expected, self._default_value, self._label_font_size, 
-        #                                       isBold=self._label_font_bold, alignment=Qt.AlignLeft)
-        
-        # Expected goal value
-        # label_expected_goal = make_label(group_expected, "Goal: ", self._label_font_size, 
-        #                                        isBold=self._label_font_bold, alignment=Qt.AlignRight)
-        
-        # self.expected_goal = make_label(group_expected, self._default_value, self._label_font_size, 
-        #                                       isBold=self._label_font_bold, alignment=Qt.AlignLeft)
-        
-        # construct the layout
-        # grid_expected.addWidget(label_expected_current, 0, 0)
-        # grid_expected.addWidget(self.expected_current, 0, 0)
-        # grid_expected.addWidget(label_expected_stop, 1, 0)
-        # grid_expected.addWidget(self.expected_stop, 1, 0)
-        # grid_expected.addWidget(label_expected_goal, 2, 0)
-        # grid_expected.addWidget(self.expected_goal, 2, 0)
 
         """ Current State Control """
         group_current, grid_current = \
@@ -578,7 +502,6 @@ class OrderBoard(QMainWindow):
         self.grid.addWidget(group_bankinfo, 0, 0, 1, 1)
         self.grid.addWidget(group_boardinfo, 0, 1, 1, 3)
         self.grid.addWidget(group_volume, 1, 0, 1, 4)
-        # self.grid.addWidget(group_expected, 2, 0, 1, 1)
         self.grid.addWidget(group_values, 2, 0, 1, 3)
         self.grid.addWidget(group_bidask, 2, 3, 1, 1)
         self.grid.addWidget(group_current, 4, 0, 1, 4)
@@ -649,7 +572,7 @@ class OrderBoard(QMainWindow):
             self.stopTimer = True
         self.checkValidationOfOrder()
 
-    @footprint
+    # @footprint
     @pyqtSlot()
     def getTickerMaually(self):
         """getTickerMaually(self) -> None
@@ -671,7 +594,7 @@ class OrderBoard(QMainWindow):
             print(ex)
             return
 
-    @footprint
+    # @footprint
     @pyqtSlot()
     def updateOnAsk(self):
         """updateOnAsk(self) -> None
@@ -682,7 +605,7 @@ class OrderBoard(QMainWindow):
         # self.updateExpectedStop()
         # self.updateExpectedGoal()
     
-    @footprint
+    # @footprint
     @pyqtSlot()
     def updateOnBid(self):
         """updateOnBid(self) -> None
@@ -693,7 +616,7 @@ class OrderBoard(QMainWindow):
         # self.updateExpectedStop()
         # self.updateExpectedGoal()
     
-    @footprint
+    # @footprint
     @pyqtSlot()
     def checkValidationOfOrder(self):
         """checkValidationOfOrder(self) -> None
@@ -706,7 +629,7 @@ class OrderBoard(QMainWindow):
         else:
             self.btn_order.setEnabled(True)
     
-    @footprint
+    # @footprint
     @pyqtSlot()
     def add1pct(self):
         """add1pct(self) -> None
@@ -759,7 +682,7 @@ class OrderBoard(QMainWindow):
         else:
             self.txt_btcjpy.setReadOnly(False)
     
-    @footprint
+    # @footprint
     @pyqtSlot()
     def updateExpectedValues(self):
         """updateExpectedValues(self) -> None
@@ -768,7 +691,7 @@ class OrderBoard(QMainWindow):
         # self.updateExpectedGoal()
         # self.updateExpectedStop()
     
-    @footprint
+    # @footprint
     @pyqtSlot()
     def updateExpectedCurrent(self):
         """updateExpectedCurrent(self) -> None
@@ -779,7 +702,7 @@ class OrderBoard(QMainWindow):
         btcjpy = float(self.txt_btcjpy.text())
         self.expected_current.setText(str(int(btc*btcjpy)))
 
-    @footprint
+    # @footprint
     @pyqtSlot()
     def updateExpectedStop(self):
         """updateExpectedStop(self) -> None
@@ -797,7 +720,7 @@ class OrderBoard(QMainWindow):
         else:
             self.expected_stop.setText(str(int(btc * (btcjpy + stop_value))))
     
-    @footprint
+    # @footprint
     @pyqtSlot()
     def updateExpectedGoal(self):
         """updateExpectedGoal(self) -> None
@@ -946,8 +869,6 @@ class OrderBoard(QMainWindow):
                 result = {"child_order_acceptance_id":str(self._execution_count)}
             else:
                 result = self._api.sendchildorder(**params)
-            
-            print(result)
         except Exception as ex:
             self.txt_log.append("@ sending order:", ex)
         
@@ -976,7 +897,7 @@ class OrderBoard(QMainWindow):
         except Exception as ex:
             self.txt_log.append("@ logging:", ex)
     
-    @footprint
+    # @footprint
     def saveExecutions(self):
         if len(self._executions) <= 0:
             return
@@ -986,7 +907,7 @@ class OrderBoard(QMainWindow):
         with open(fpath, "w") as ff:
             json.dump(history, ff, indent=4)
     
-    @footprint
+    # @footprint
     def saveLastExecution(self):
         """saveLastExecution(self) -> None
         """
@@ -1001,7 +922,7 @@ class OrderBoard(QMainWindow):
         with open(fpath, "w") as ff:
             json.dump(history, ff, indent=4)
     
-    @footprint
+    # @footprint
     def screenShot(self):
         imgfldr = "./images"
         if not os.path.exists(imgfldr):
@@ -1165,7 +1086,7 @@ class OrderBoard(QMainWindow):
             self.txt_log.append("@ updating the order interest:", ex)
             return
     
-    @footprint
+    # @footprint
     def updateCurrentTable(self):
         """updateCurrentTable(self) -> None
         TODO: to change the widget from QTableWidget to QTableView
@@ -1216,18 +1137,20 @@ class OrderBoard(QMainWindow):
         # Move.
         self._worker_getData.moveToThread(self._thread_getData)
     
-    @footprint
+    # @footprint
     @pyqtSlot()
     def startGettingDataThread(self):
         """startGettingDataThread(self) -> None
         """
         if not self._thread_getData.isRunning():
-            print("start thread by timer.")
+            if self.DEBUG:
+                print("start thread by timer.")
             self._thread_getData.start()
         else:
-            print("Thread is running.")
+            if self.DEBUG:
+                print("Thread is running.")
     
-    @footprint
+    # @footprint
     @pyqtSlot(object)
     def updateData(self, obj):
         """updateData(self, obj) -> None
@@ -1276,7 +1199,7 @@ class OrderBoard(QMainWindow):
                 print(ex)
                 return
 
-    @footprint
+    # @footprint
     @pyqtSlot()
     def checkIsTimerStopped(self):
         """checkIsTimerStopped(self) -> None
@@ -1301,6 +1224,7 @@ class OrderBoard(QMainWindow):
         self._worker_Bot = Bot3(name="", parent=None, api=self._api, product_code=self._product_code, 
                                 size=self.bot_initial_size, loss_cutting=self.loss_cutting, profit_taking=self.profit_taking,
                                 threshold=self.bot_threshold, DEBUG=self.DEBUG)
+        self._worker_Bot.do_something_bot.connect(self.updateCurrentTableByBot)
         
         # Start.
         self._thread_Bot.started.connect(self.connectBot)
@@ -1311,7 +1235,23 @@ class OrderBoard(QMainWindow):
         # Move.
         self._worker_Bot.moveToThread(self._thread_Bot)
     
-    @footprint
+    # @footprint
+    @pyqtSlot(object)
+    def updateCurrentTableByBot(self, obj):
+        if obj is None:
+            self.txt_log.append("updateCurrentTableByBot")
+            return
+        self.txt_log.append("updateCurrentTableByBot 2")
+        # try:
+        #     accepted_id = obj["child_order_acceptance_id"]
+        # except KeyError:
+        #     self.txt_log.append("no data from Bot.")
+        #     return
+        self.__getLastExecution()
+        self.__getOrderInterest()
+        self.updateCurrentTable()
+    
+    # @footprint
     @pyqtSlot()
     def updateBotThreadState(self):
         if not self._thread_Bot.isRunning():

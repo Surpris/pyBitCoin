@@ -11,7 +11,7 @@ class BotBase(Worker):
     """BotBase
     Base class of Bot for OrderBoard
     """
-    # do_something_bot = pyqtSignal(object)
+    do_something_bot = pyqtSignal(object)
     finished_bot = pyqtSignal()
 
     def __init__(self, name="", parent=None, api=None, 
@@ -72,13 +72,12 @@ class BotBase(Worker):
         if self._DEBUG:
             print("bot: process_bot")
             print(self.data)
-        # self.data2 = obj2
         try:
             with QMutexLocker(self.mutex):
                 self._process()
         except Exception as ex:
             print(ex)
-        # self.do_something_bot.emit(self.data)
+        self.do_something_bot.emit(self.data2)
         self.finished_bot.emit()
     
     def _process(self):
@@ -96,7 +95,7 @@ class BotBase(Worker):
             self._pnl_list.append(collateral["open_position_pnl"])
             self.analyze()
             self._tick_count += 1
-            if self._tick_count > 0 and self._accepted_id is not None and self._accepted_jpy is None:
+            if  self._accepted_id is not None and self._accepted_jpy is None:
                 if self._DEBUG:
                     print("bot: getchildorders")
                     results = self._api.getchildorders(product_code=self._product_code)
@@ -107,10 +106,15 @@ class BotBase(Worker):
                     print("bot: No order with id {}.".format(self._accepted_id))
                     self._post_process()
                     return
+                self.data2 = {
+                    "child_order_acceptance_id":self._accepted_id,
+                    "result":results[0]
+                }
                 self._accepted_jpy = results[0]["price"]
                 if self._DEBUG:
                     print(results[0])
-            
+            else:
+                self.data2 = None
             if self._side == "WAIT" and self._tick_count >= self._tick_count_order:
                 if self._DEBUG:
                     print("bot: judge")
@@ -196,11 +200,12 @@ class BotBase(Worker):
 
         try:
             result = self._api.sendchildorder(**params)
-            print(result)
             self._execution_list.append(result)
+            if "child_order_acceptance_id" in result:
+                self._accepted_id = result["child_order_acceptance_id"]
             return True
         except Exception as ex:
-            print("@ sending order:", ex)
+            print("bot: @ sending order:", ex)
             self._tmp_side = self._side
             return False
     
@@ -239,6 +244,7 @@ class BotBase(Worker):
         self._tick_count = 0
         self._side = "WAIT"
         self._tmp_side = "WAIT"
+        self._accepted_id = None
     
     def _post_process(self):
         if len(self._ltp_list) > self._nbr_of_tickers:
@@ -386,7 +392,9 @@ class Bot3(BotBase):
     
     def analyze(self):
         self._calc_ema()
-        self._calc_ema2()
+        if self._accepted_jpy is not None:
+            print(self._accepted_jpy)
+        # self._calc_ema2()
     
     def _calc_ema2(self):
         if len(self._ema2_list) == 0:
@@ -398,8 +406,8 @@ class Bot3(BotBase):
     def _judge_order_side(self):
         if self._ltp_list[-2] > self._ema_list[-2] and self._ltp_list[-1] <= self._ema_list[-1]:
             self._tmp_side = "SELL"
-        elif self._ltp_list[-2] <= self._ema_list[-2] and self._ltp_list[-1] > self._ema_list[-1]:
-            self._tmp_side = "BUY"
+        # elif self._ltp_list[-2] <= self._ema_list[-2] and self._ltp_list[-1] > self._ema_list[-1]:
+        #     self._tmp_side = "BUY"
         else:
             if self._DEBUG:
                 print("not satisfied with order condition.")
@@ -409,11 +417,17 @@ class Bot3(BotBase):
             return
 
     def _judge_stop(self):
-        sum_pnl = sum(self._pnl_list[-self._tick_count_stop:]) / self._tick_count_stop
-        if sum_pnl <= - self._loss_cutting:
-            return True
-        elif self._pnl_list[-1] > self._profit_taking:
-            return True
+        diff = self._ltp_list[-1] - self._accepted_jpy
+        if self._side == "BUY":
+            if diff > self._profit_taking or diff < - self._loss_cutting:
+                return True
+            else:
+                return False
+        elif self._side == "SELL":
+            if diff < - self._profit_taking or diff > self._loss_cutting:
+                return True
+            else:
+                return False
         else:
             return False
 

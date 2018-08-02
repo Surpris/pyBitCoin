@@ -10,10 +10,11 @@ class Worker(QObject):
     do_something2 = pyqtSignal(object)
     finished = pyqtSignal()
 
-    def __init__(self, name = "", parent = None):
+    def __init__(self, name = "", parent = None, debug=False):
         super().__init__(parent)
         self.mutex = QMutex()
         self.name = name
+        self.DEBUG = debug
         self.data = None
         self.stopWorking = False
         self.sleepInterval = 1
@@ -32,7 +33,8 @@ class Worker(QObject):
         self.do_something.emit(self.data)
         self.do_something2.emit(self.data)
         elapsed = time.time() - st
-        print("Elapsed time of process:{0:.4f} sec.".format(elapsed))
+        if self.DEBUG:
+            print("Elapsed time of process:{0:.4f} sec.".format(elapsed))
         self.finished.emit()
 
     def _process(self):
@@ -45,8 +47,8 @@ class Worker(QObject):
         self.isStopped = True
 
 class GetTickerWorker(Worker):
-    def __init__(self, name = "", parent = None, api=None, product_code=None):
-        super().__init__(name=name, parent=parent)
+    def __init__(self, name = "", parent = None, api=None, product_code=None, debug=False):
+        super().__init__(name=name, parent=parent, debug=debug)
         self._api = api
         self._product_code = product_code
 
