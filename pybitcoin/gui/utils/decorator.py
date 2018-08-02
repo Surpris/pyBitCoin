@@ -5,7 +5,7 @@ import functools
 import datetime
 _dtformat = "%Y-%m-%d %H:%M:%S"
 
-def footprint(func):
+def footprint(func, debug=True):
     """footprint(func) -> wrapper function
     Print the datetime when the wrappered function is called, and the name of function.
     """
@@ -22,4 +22,7 @@ def footprint(func):
         print("[{0}] << {1}()".format(nowtime, func.__name__))
         # else:
         #     print("[{0}] << {1}.{2}()".format(nowtime, class_name, func.__name__))
-    return wrapper
+    if debug:
+        return wrapper
+    else:
+        return func
