@@ -2,5 +2,5 @@
 # -*- coding: utf-8 -*-
 
 from . import utils
-from .Worker import GetTickerWorker, Worker
+from . import workers
 from .OrderBoard import OrderBoard

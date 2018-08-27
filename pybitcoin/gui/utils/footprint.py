@@ -19,7 +19,7 @@ if not os.path.exists(logdir):
 _now = datetime.datetime.now()
 logpath = os.path.join(logdir, "log_{}.log".format(_now.strftime(_dtformat_LOG)))
 
-logformat = '[%(asctime)s] %(levelname)s >> %(message)s'
+logformat = '[%(asctime)s] (%(levelname)s) %(message)s'
 
 _logger = get_logger("debug", logformat, "debug", logpath=logpath)
 
@@ -37,8 +37,8 @@ def footprint(func, loglevel="debug"):
     """
     @functools.wraps(func)
     def wrapper(*args,**kwargs):
-        _loggers[loglevel]("{}()".format(func.__name__))
+        _loggers[loglevel](">> {}()".format(func.__name__))
         func(*args,**kwargs)
         nowtime = datetime.datetime.now().strftime(_dtformat)
-        _loggers[loglevel]("{}()".format(func.__name__))
+        _loggers[loglevel]("<< {}()".format(func.__name__))
     return wrapper
