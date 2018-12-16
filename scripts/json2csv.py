@@ -98,14 +98,17 @@ def main_to_all(fldr, remove_files):
             print("Unexpected format:{}. 'tickers' must have a type of list.".format(type(tickers)))
         if header is None:
             header = list(tickers[0].keys())
-        for ticker in tickers:
-            lst = []
-            for key in header:
-                lst.append(ticker[key])
-            ary.append(lst)
-        ary = np.array(ary)
-        df = pd.DataFrame(ary, columns=header)
-        df.to_csv(output_path)
+        try:
+            for ticker in tickers:
+                lst = []
+                for key in header:
+                    lst.append(ticker[key])
+                ary.append(lst)
+            ary = np.array(ary)
+            df = pd.DataFrame(ary, columns=header)
+            df.to_csv(output_path)
+        except Exception as ex:
+            print(ex)
     print("conversion was finished.")
     if remove_files == "True":
         print("remove the original files...")
