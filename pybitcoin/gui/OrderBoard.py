@@ -37,7 +37,7 @@ class OrderBoard(QMainWindow):
         self.initAPI()
         self.initData()
         # For QPushButton on QMassageBox
-        str_ = "background-color:{0};".format(self._button_bg_color)
+        # str_ = "background-color:{0};".format(self._button_bg_color)
         self.initGetDataProcess()
         self.initBot()
         self.initGui()
@@ -1238,6 +1238,8 @@ class OrderBoard(QMainWindow):
     # @footprint
     @pyqtSlot(object)
     def updateCurrentTableByBot(self, obj):
+        """updateCurrentTableByBot(self, obj) -> None
+        """
         if obj is None:
             self.txt_log.append("updateCurrentTableByBot")
             return
@@ -1254,6 +1256,8 @@ class OrderBoard(QMainWindow):
     # @footprint
     @pyqtSlot()
     def updateBotThreadState(self):
+        """updateBotThreadState(self): -> None
+        """
         if not self._thread_Bot.isRunning():
             # self._worker_Bot.btc_size = float(self.txt_btc.text())
             self.txt_log.append("current bot btc size: {}".format(self._worker_Bot.btc_size))
@@ -1267,11 +1271,15 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def connectBot(self):
+        """connectBot(self) -> None
+        """
         self._worker_getData.do_something2.connect(self._worker_Bot.process_bot)
     
     @footprint
     @pyqtSlot()
     def disconnectBot(self):
+        """disconnectBot(self) -> None
+        """
         self._worker_getData.do_something2.disconnect()
     
 ######################## Closing processes ########################
