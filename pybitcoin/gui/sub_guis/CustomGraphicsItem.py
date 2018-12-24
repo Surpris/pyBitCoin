@@ -13,7 +13,10 @@ class CandlestickItem(pg.GraphicsObject):
     def __init__(self, data):
         pg.GraphicsObject.__init__(self)
         self.data = np.array(data)  ## data must have fields: time, open, close, min, max
-        self.generatePicture()
+        try:
+            self.generatePicture()
+        except Exception as ex:
+            print(ex)
     
     def generatePicture(self):
         self.picture = QtGui.QPicture()
@@ -22,6 +25,15 @@ class CandlestickItem(pg.GraphicsObject):
         if len(self.data.shape) == 1:
             w = 1./3.
             t_, open_, high_, low_, close_ = self.data[:]
+            p.drawLine(QtCore.QPointF(t_, low_), QtCore.QPointF(t_, high_))
+            if open_ > close_:
+                p.setBrush(pg.mkBrush('r'))
+            else:
+                p.setBrush(pg.mkBrush('g'))
+            p.drawRect(QtCore.QRectF(t_-w, open_, w*2, close_-open_))
+        elif self.data.shape[0] == 1:
+            w = 1./3.
+            t_, open_, high_, low_, close_ = self.data[0, :]
             p.drawLine(QtCore.QPointF(t_, low_), QtCore.QPointF(t_, high_))
             if open_ > close_:
                 p.setBrush(pg.mkBrush('r'))

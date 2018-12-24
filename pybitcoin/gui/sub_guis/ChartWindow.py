@@ -17,7 +17,7 @@ import pyqtgraph as pg
 
 import sys
 sys.path.append("../")
-from utils import make_groupbox_and_grid, make_pushbutton
+from utils import make_groupbox_and_grid, make_pushbutton, calc_EMA
 from CustomGraphicsItem import CandlestickItem
 
 
@@ -45,7 +45,14 @@ class ChartWindow(QDialog):
         self._window_color = "gray"
 
         self._count = 0
+        self._N_ema1 = 5
+        self._color_ema1 = "#3C8CE7"
+        self._N_ema2 = 20
+        self._color_ema2 = "#EE8F1D"
         # self._plot_width = 30
+        self.data = None
+        self._ohlc_list = []
+        self._close = []
         self.DEBUG = True
     
     def initGui(self):
@@ -78,12 +85,6 @@ class ChartWindow(QDialog):
             )
             grid_debug.addWidget(self.button1, 0, 0)
             self.grid.addWidget(group_debug, 1, 0)
-
-        # self.grid.addWidget(group1, 0, 0)
-
-        # self.setFixedSize(self.size())
-        # plot(self.data.mean(axis=1), np.arange(self.data.shape[0]), clear=True)
-        # self.candlesticks = QCandleStickSet()
     
     def initMainGrid(self):
         """ initMainWidget(self) -> None
@@ -98,12 +99,28 @@ class ChartWindow(QDialog):
     def update(self):
         """update(self, data) -> None
         """
-        data_ = np.array(self.data[self._count % len(self.data)])
-        self._count += 1
-        if self._count > len(self.data):
-            data_[0] = self._count
-        self.plot.addItem(CandlestickItem(data_))
-    
+        try:
+            data_ = np.array(self.data[self._count % len(self.data)])
+            self._count += 1
+            if self._count > len(self.data):
+                data_[0] = self._count
+            self._ohlc_list.append(data_)
+            self._close.append(data_[-1])
+            self.plot.clear()
+            self.plot.addItem(CandlestickItem(self._ohlc_list))
+            self.plot.plot(
+                np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), 
+                calc_EMA(self._close, self._N_ema1), 
+                clear=False, pen=pg.mkPen(self._color_ema1, width=2)
+            )
+            self.plot.plot(
+                np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), 
+                calc_EMA(self._close, self._N_ema2), 
+                clear=False, pen=pg.mkPen(self._color_ema2, width=2)
+            )
+        except Exception as ex:
+            print(ex)
+
     def setData(self, data):
         """setData(self, data) -> None
         """
