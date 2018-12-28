@@ -34,6 +34,7 @@ class ChartWindow(QDialog):
 
     def __init__(self, *args):
         """__init__(self, *args) -> None
+        initialize this class
         """
         super().__init__(*args)
 
@@ -67,6 +68,7 @@ class ChartWindow(QDialog):
     
     def initInnerData(self):
         """initInnerData(self) -> None
+        initialize the inner data
         """
         self._timestamp = []
         self._latest = None
@@ -87,6 +89,9 @@ class ChartWindow(QDialog):
         self._alpha2 = 2./(self._N_ema2 + 1.)
     
     def initGui(self):
+        """initGui(self) -> None
+        initialize the GUI
+        """
         # self.setAttribute(Qt.WA_DeleteOnClose)
         self.initMainGrid()
         # self.setMenuBar()
@@ -101,7 +106,6 @@ class ChartWindow(QDialog):
         self.glw.resize(self._window_width - 20, self._window_height - 20)
 
         self.chart = self.glw.addPlot()
-        # self.chart.plot()
 
         self.glw.nextRow()
         self.chart2 = self.glw.addPlot()
@@ -125,9 +129,6 @@ class ChartWindow(QDialog):
 
             self.le_end = QLineEdit(group_debug)
             self.le_end.setText("100")
-            # font = self.le_end.font()
-            # font.setPointSize(self._button_font_size)
-            # self.le_end.setFont(font)
             self.le_end.resize((self._window_width - 50)//3, 16)
             self.le_end.setStyleSheet("background-color:{};".format(self._txt_bg_color))
             self.le_end.setValidator(QIntValidator())
@@ -149,7 +150,6 @@ class ChartWindow(QDialog):
         self.setStyleSheet("background-color:{};".format(self._window_color))
         self.grid = QGridLayout(self)
         self.grid.setSpacing(5)
-        # self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "python.png")))
     
     def update(self, data):
         """update(self, data) -> None
@@ -158,19 +158,11 @@ class ChartWindow(QDialog):
         Parameters
         ----------
         data : dict
-            data contains the following key-value pairs:
+            data must contain the following key-value pairs:
                 timestamp : unix time (str)
                 ltp : latest trading price (int)
         """
         try:
-            # start_ = int(self.le_start.text())
-            # end_ = int(self.le_end.text())
-            # data_ = self.data[["Open", "High", "Low", "Close"]].values[start_:end_].copy()
-            # self.initInnerData()
-            # buff = np.zeros(5)
-            # for ii in range(len(data_)):
-            #     buff[0] = start_ + ii
-            #     buff[1:] = data_[ii].copy()
             self.updateInnerData(data)
             self.updatePlots()
         except Exception as ex:
@@ -183,54 +175,67 @@ class ChartWindow(QDialog):
         Parameters
         ----------
         data : dict
-            data contains the following key-value pairs:
+            data must contain the following key-value pairs:
                 timestamp : unix time (str)
                 ltp : latest trading price (int)
         """
-        if self.DEBUG:
-            timestamp_ = datetime.strptime(data["timestamp"], self._datetimeFmt_BITFLYER)
-            if self._latest is None:
-                self._latest = timestamp_
-                self._timestamp.append(0)
-            elif self._latest.minute < timestamp_.minute:
-                self._latest = timestamp_
-                self._timestamp.append(0)
-                # self._close.pop()
-                # self._close.append(self._tmp_ohlc[-1] * 1)
-                # self._ema1.pop()
-                # self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
-                # self._ema2.pop()
-                # self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
-                self._cross_signal.pop()
-                self._cross_signal.append(self.judgeCrossPoint())
-                self._ohlc_list.pop()
-                self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
-
-                self._tmp_ohlc.clear()
-                self._tmp_ltp.clear()
-            else:
-                self._close.pop()
-                self._ema1.pop()
-                self._ema2.pop()
-                self._cross_signal.pop()
-                self._ohlc_list.pop()
-            
-            self._ltp.append(data["ltp"])
-            self._tmp_ltp.append(data["ltp"])
-            self._close.append(self._tmp_ltp[-1])
-            self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
-            self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
-            self._cross_signal.append(0)
-            self._tmp_ohlc = [
-                len(self._timestamp), 
-                self._tmp_ltp[0], 
-                max(self._tmp_ltp), 
-                min(self._tmp_ltp), 
-                self._tmp_ltp[-1]
-            ]
+        timestamp_ = datetime.strptime(data["timestamp"], self._datetimeFmt_BITFLYER)
+        if self._latest is None:
+            self._latest = timestamp_
+            self._timestamp.append(0)
+        elif self._latest.minute < timestamp_.minute:
+            self._latest = timestamp_
+            self._timestamp.append(0)
+            # self._close.pop()
+            # self._close.append(self._tmp_ohlc[-1] * 1)
+            # self._ema1.pop()
+            # self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
+            # self._ema2.pop()
+            # self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
+            self._cross_signal.pop()
+            self._cross_signal.append(self.judgeCrossPoint())
+            self._ohlc_list.pop()
             self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
+
+            self._tmp_ohlc.clear()
+            self._tmp_ltp.clear()
+        else:
+            self._close.pop()
+            self._ema1.pop()
+            self._ema2.pop()
+            self._cross_signal.pop()
+            self._ohlc_list.pop()
+        
+        self._ltp.append(data["ltp"])
+        self._tmp_ltp.append(data["ltp"])
+        self._close.append(self._tmp_ltp[-1])
+        self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
+        self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
+        self._cross_signal.append(0)
+        self._tmp_ohlc = [
+            len(self._timestamp), 
+            self._tmp_ltp[0], 
+            max(self._tmp_ltp), 
+            min(self._tmp_ltp), 
+            self._tmp_ltp[-1]
+        ]
+        self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
     
     def calcEMA(self, ema_list, alpha):
+        """calcEMA(self, ema_list, alpha) -> float
+        calculate the EMA value for the latest close data
+
+        Parameters
+        ----------
+        ema_list : array-like
+            list of historical EMA values
+        alpha : float
+            alpha parameter of EMA calculation
+        
+        Returns
+        -------
+        current EMA value (float)
+        """
         if len(ema_list) == 0:
             return self._close[-1]
         else:
@@ -238,6 +243,14 @@ class ChartWindow(QDialog):
     
     def judgeCrossPoint(self):
         """judgeCrossPoint(self) -> float
+        judge whether one is on a cross point
+
+        Returns
+        -------
+        judgement value (float)
+            +1.0 : on a golden cross point
+             0.0 : not on any cross point
+            -1.0 : on a dead cross point
         """
         if len(self._ema1) == 0 or len(self._ema2) == 0:
             raise ValueError("Some error occurs on the inner data.")
@@ -255,6 +268,7 @@ class ChartWindow(QDialog):
     
     def updatePlots(self):
         """updatePlots(self) -> None
+        update Grpahs
         """
         if not self.DEBUG:
             self.chart.plot(
@@ -279,6 +293,7 @@ class ChartWindow(QDialog):
 
     def setData(self, data):
         """setData(self, data) -> None
+        set data
         """
         if isinstance(data, pd.DataFrame):
             self.data = data
