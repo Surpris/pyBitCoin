@@ -548,7 +548,6 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def showWindow(self):
         self._chart_window = ChartWindow(self)
-        self._chart_window.setData(r'.\data\OHLC_20181211.csv')
         self._chart_window.show()
         self._chart_window.raise_()
         self._chart_window.activateWindow()
@@ -1208,8 +1207,7 @@ class OrderBoard(QMainWindow):
                 self.tot_value.setText(str(collateral["require_collateral"]))
 
                 # CharWindow
-                data = [market_data["ltp"]]
-                self._chart_window.update(data)
+                self._chart_window.update(market_data)
                     
             except Exception as ex:
                 print(ex)

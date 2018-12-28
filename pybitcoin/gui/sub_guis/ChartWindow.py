@@ -7,6 +7,8 @@ This file offers the following items:
 
 * ChartWindow
 """
+import copy
+from datetime import datetime
 import numpy as np
 import os
 import pandas as pd
@@ -56,14 +58,21 @@ class ChartWindow(QDialog):
         self._color_ema2 = "#EE8F1D"
         self._color_cross_signal = "#FFFFFF"
         # self._plot_width = 30
-        self.data = None
         self.initInnerData()
         self.updateAlpha()
+
+        self.data = None
+        self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
         self.DEBUG = True
     
     def initInnerData(self):
         """initInnerData(self) -> None
         """
+        self._timestamp = []
+        self._latest = None
+        self._tmp_ltp = []
+        self._tmp_ohlc = []
+        self._ltp = []
         self._ohlc_list = []
         self._close = []
         self._ema1 = []
@@ -144,6 +153,14 @@ class ChartWindow(QDialog):
     
     def update(self, data):
         """update(self, data) -> None
+        update the inner data and graphs
+
+        Parameters
+        ----------
+        data : dict
+            data contains the following key-value pairs:
+                timestamp : unix time (str)
+                ltp : latest trading price (int)
         """
         try:
             # start_ = int(self.le_start.text())
@@ -161,27 +178,63 @@ class ChartWindow(QDialog):
     
     def updateInnerData(self, data):
         """updateInnerData(self, data) -> None
+        update the inner data
+
+        Parameters
+        ----------
+        data : dict
+            data contains the following key-value pairs:
+                timestamp : unix time (str)
+                ltp : latest trading price (int)
         """
         if self.DEBUG:
-            self._close.append(data[-1])
+            timestamp_ = datetime.strptime(data["timestamp"], self._datetimeFmt_BITFLYER)
+            if self._latest is None:
+                self._latest = timestamp_
+                self._timestamp.append(0)
+            elif self._latest.minute < timestamp_.minute:
+                self._latest = timestamp_
+                self._timestamp.append(0)
+                # self._close.pop()
+                # self._close.append(self._tmp_ohlc[-1] * 1)
+                # self._ema1.pop()
+                # self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
+                # self._ema2.pop()
+                # self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
+                self._cross_signal.pop()
+                self._cross_signal.append(self.judgeCrossPoint())
+                self._ohlc_list.pop()
+                self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
+
+                self._tmp_ohlc.clear()
+                self._tmp_ltp.clear()
+            else:
+                self._close.pop()
+                self._ema1.pop()
+                self._ema2.pop()
+                self._cross_signal.pop()
+                self._ohlc_list.pop()
+            
+            self._ltp.append(data["ltp"])
+            self._tmp_ltp.append(data["ltp"])
+            self._close.append(self._tmp_ltp[-1])
+            self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
+            self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
+            self._cross_signal.append(0)
+            self._tmp_ohlc = [
+                len(self._timestamp), 
+                self._tmp_ltp[0], 
+                max(self._tmp_ltp), 
+                min(self._tmp_ltp), 
+                self._tmp_ltp[-1]
+            ]
+            self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
+    
+    def calcEMA(self, ema_list, alpha):
+        if len(ema_list) == 0:
+            return self._close[-1]
         else:
-            self._count += 1
-            if self._count > len(self.data):
-                data[0] = self._count
-            self._ohlc_list.append(data)
-            self._close.append(data[-1])
-
-            if len(self._ema1) == 0:
-                self._ema1.append(data[-1])
-            else:
-                self._ema1.append((1. - self._alpha1) * self._ema1[-1] + self._alpha1 * data[-1])
-
-            if len(self._ema2) == 0:
-                self._ema2.append(data[-1])
-            else:
-                self._ema2.append((1. - self._alpha2) * self._ema2[-1] + self._alpha2 * data[-1])
-
-            self._cross_signal.append(self.judgeCrossPoint())
+            return (1. - alpha) * ema_list[-1] + alpha * self._close[-1]
     
     def judgeCrossPoint(self):
         """judgeCrossPoint(self) -> float
@@ -203,7 +256,7 @@ class ChartWindow(QDialog):
     def updatePlots(self):
         """updatePlots(self) -> None
         """
-        if self.DEBUG:
+        if not self.DEBUG:
             self.chart.plot(
                 np.arange(len(self._close)), self._close, 
                 clear=False, pen=pg.mkPen("#FFFFFF", width=2)
@@ -212,17 +265,15 @@ class ChartWindow(QDialog):
             self.chart.clear()
             self.chart.addItem(CandlestickItem(self._ohlc_list))
             self.chart.plot(
-                np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), self._ema1, 
+                np.arange(len(self._timestamp)), self._ema1, 
                 clear=False, pen=pg.mkPen(self._color_ema1, width=2)
             )
             self.chart.plot(
-                np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), 
-                calc_EMA(self._close, self._N_ema2), 
+                np.arange(len(self._timestamp)), self._ema2,
                 clear=False, pen=pg.mkPen(self._color_ema2, width=2)
             )
             self.chart2.plot(
-                np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), 
-                self._cross_signal,
+                np.arange(len(self._timestamp)), self._cross_signal,
                 clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
             )
 
