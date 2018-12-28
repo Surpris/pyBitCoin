@@ -8,6 +8,7 @@ This file offers the following items:
 * ChartWindow
 """
 import numpy as np
+import os
 import pandas as pd
 from PyQt5.QtWidgets import QMainWindow, QDialog, QGridLayout, QMenu, QWidget, QLabel, QLineEdit, QTextEdit
 from PyQt5.QtWidgets import QApplication
@@ -20,7 +21,8 @@ import pyqtgraph as pg
 import sys
 sys.path.append("../")
 from utils import make_groupbox_and_grid, make_pushbutton, calc_EMA
-from CustomGraphicsItem import CandlestickItem
+# from CustomGraphicsItem import CandlestickItem
+from .CustomGraphicsItem import CandlestickItem
 
 
 class ChartWindow(QDialog):
@@ -140,19 +142,19 @@ class ChartWindow(QDialog):
         self.grid.setSpacing(5)
         # self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "python.png")))
     
-    def update(self):
+    def update(self, data):
         """update(self, data) -> None
         """
         try:
-            start_ = int(self.le_start.text())
-            end_ = int(self.le_end.text())
-            data_ = self.data[["Open", "High", "Low", "Close"]].values[start_:end_].copy()
-            self.initInnerData()
-            buff = np.zeros(5)
-            for ii in range(len(data_)):
-                buff[0] = start_ + ii
-                buff[1:] = data_[ii].copy()
-                self.updateInnerData(buff.copy())
+            # start_ = int(self.le_start.text())
+            # end_ = int(self.le_end.text())
+            # data_ = self.data[["Open", "High", "Low", "Close"]].values[start_:end_].copy()
+            # self.initInnerData()
+            # buff = np.zeros(5)
+            # for ii in range(len(data_)):
+            #     buff[0] = start_ + ii
+            #     buff[1:] = data_[ii].copy()
+            self.updateInnerData(data)
             self.updatePlots()
         except Exception as ex:
             print(ex)
@@ -160,23 +162,26 @@ class ChartWindow(QDialog):
     def updateInnerData(self, data):
         """updateInnerData(self, data) -> None
         """
-        # self._count += 1
-        # if self._count > len(self.data):
-        #     data[0] = self._count
-        self._ohlc_list.append(data)
-        self._close.append(data[-1])
-
-        if len(self._ema1) == 0:
-            self._ema1.append(data[-1])
+        if self.DEBUG:
+            self._close.append(data[-1])
         else:
-            self._ema1.append((1. - self._alpha1) * self._ema1[-1] + self._alpha1 * data[-1])
+            self._count += 1
+            if self._count > len(self.data):
+                data[0] = self._count
+            self._ohlc_list.append(data)
+            self._close.append(data[-1])
 
-        if len(self._ema2) == 0:
-            self._ema2.append(data[-1])
-        else:
-            self._ema2.append((1. - self._alpha2) * self._ema2[-1] + self._alpha2 * data[-1])
+            if len(self._ema1) == 0:
+                self._ema1.append(data[-1])
+            else:
+                self._ema1.append((1. - self._alpha1) * self._ema1[-1] + self._alpha1 * data[-1])
 
-        self._cross_signal.append(self.judgeCrossPoint())
+            if len(self._ema2) == 0:
+                self._ema2.append(data[-1])
+            else:
+                self._ema2.append((1. - self._alpha2) * self._ema2[-1] + self._alpha2 * data[-1])
+
+            self._cross_signal.append(self.judgeCrossPoint())
     
     def judgeCrossPoint(self):
         """judgeCrossPoint(self) -> float
@@ -198,22 +203,28 @@ class ChartWindow(QDialog):
     def updatePlots(self):
         """updatePlots(self) -> None
         """
-        self.chart.clear()
-        self.chart.addItem(CandlestickItem(self._ohlc_list))
-        self.chart.plot(
-            np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), self._ema1, 
-            clear=False, pen=pg.mkPen(self._color_ema1, width=2)
-        )
-        self.chart.plot(
-            np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), 
-            calc_EMA(self._close, self._N_ema2), 
-            clear=False, pen=pg.mkPen(self._color_ema2, width=2)
-        )
-        self.chart2.plot(
-            np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), 
-            self._cross_signal,
-            clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
-        )
+        if self.DEBUG:
+            self.chart.plot(
+                np.arange(len(self._close)), self._close, 
+                clear=False, pen=pg.mkPen("#FFFFFF", width=2)
+            )
+        else:
+            self.chart.clear()
+            self.chart.addItem(CandlestickItem(self._ohlc_list))
+            self.chart.plot(
+                np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), self._ema1, 
+                clear=False, pen=pg.mkPen(self._color_ema1, width=2)
+            )
+            self.chart.plot(
+                np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), 
+                calc_EMA(self._close, self._N_ema2), 
+                clear=False, pen=pg.mkPen(self._color_ema2, width=2)
+            )
+            self.chart2.plot(
+                np.arange(self._ohlc_list[0][0], len(self._close)+self._ohlc_list[0][0]), 
+                self._cross_signal,
+                clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
+            )
 
     def setData(self, data):
         """setData(self, data) -> None

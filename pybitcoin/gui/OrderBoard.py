@@ -21,6 +21,7 @@ from PyQt5 import  QtGui, QtCore
 from utils import footprint
 from utils import make_groupbox_and_grid, make_label, make_pushbutton
 from workers import GetTickerWorker, Bot3
+from sub_guis import ChartWindow
 
 DEBUG = False
 
@@ -511,6 +512,8 @@ class OrderBoard(QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
         self.setFixedSize(self.size())
+
+        self.showWindow()
     
     @footprint
     def setMenuBar(self):
@@ -540,6 +543,15 @@ class OrderBoard(QMainWindow):
         # help_menu.addAction('About...', self.showAbout)
         # self.menuBar().addSeparator()
         # self.menuBar().addMenu(help_menu)
+    
+    @footprint
+    @pyqtSlot()
+    def showWindow(self):
+        self._chart_window = ChartWindow(self)
+        self._chart_window.setData(r'.\data\OHLC_20181211.csv')
+        self._chart_window.show()
+        self._chart_window.raise_()
+        self._chart_window.activateWindow()
 
 ######################## Menu bar ########################
     @footprint
@@ -1194,6 +1206,10 @@ class OrderBoard(QMainWindow):
                 self.jpy_value.setText(str(collateral["collateral"]))
                 self.btc_value.setText(str(collateral["open_position_pnl"]))
                 self.tot_value.setText(str(collateral["require_collateral"]))
+
+                # CharWindow
+                data = [market_data["ltp"]]
+                self._chart_window.update(data)
                     
             except Exception as ex:
                 print(ex)
