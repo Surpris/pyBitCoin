@@ -64,6 +64,7 @@ class ChartWindow(QDialog):
 
         self.data = None
         self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
+        self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
         self.DEBUG = True
     
     def initInnerData(self):
@@ -179,7 +180,10 @@ class ChartWindow(QDialog):
                 timestamp : unix time (str)
                 ltp : latest trading price (int)
         """
-        timestamp_ = datetime.strptime(data["timestamp"], self._datetimeFmt_BITFLYER)
+        try:
+            timestamp_ = datetime.strptime(data["timestamp"], self._datetimeFmt_BITFLYER)
+        except ValueError:
+            timestamp_ = datetime.strptime(data["timestamp"], self._datetimeFmt_BITFLYER_2)
         if self._latest is None:
             self._latest = timestamp_
             self._timestamp.append(0)
@@ -272,22 +276,22 @@ class ChartWindow(QDialog):
         """
         if not self.DEBUG:
             self.chart.plot(
-                np.arange(len(self._close)), self._close, 
+                np.arange(1, len(self._close) + 1), self._close, 
                 clear=False, pen=pg.mkPen("#FFFFFF", width=2)
             )
         else:
             self.chart.clear()
             self.chart.addItem(CandlestickItem(self._ohlc_list))
             self.chart.plot(
-                np.arange(len(self._timestamp)), self._ema1, 
+                np.arange(1, len(self._timestamp) + 1), self._ema1, 
                 clear=False, pen=pg.mkPen(self._color_ema1, width=2)
             )
             self.chart.plot(
-                np.arange(len(self._timestamp)), self._ema2,
+                np.arange(1, len(self._timestamp) + 1), self._ema2,
                 clear=False, pen=pg.mkPen(self._color_ema2, width=2)
             )
             self.chart2.plot(
-                np.arange(len(self._timestamp)), self._cross_signal,
+                np.arange(1, len(self._timestamp) + 1), self._cross_signal,
                 clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
             )
 
