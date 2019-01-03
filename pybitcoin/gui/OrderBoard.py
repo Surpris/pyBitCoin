@@ -77,8 +77,8 @@ class OrderBoard(QMainWindow):
         self._ask_color = "#16A085"
         self._bid_color = "#EC7063"
 
-        self._get_data_interval = 1 # [sec]
-        self._get_data_worker_sleep_interval = self._get_data_interval - 0.1 # [sec]
+        self._get_data_interval = 0.5 # [sec]
+        self._get_data_worker_sleep_interval = self._get_data_interval - 0.05 # [sec]
 
         self._currentDir = os.path.dirname(__file__)
         self._closing_dialog = True

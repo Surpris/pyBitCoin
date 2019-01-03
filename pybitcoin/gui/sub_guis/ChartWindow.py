@@ -17,14 +17,15 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QPainter
 from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtCore import Qt
+from PyQt5.QtCore import pyqtSlot
 # from PyQt5.QtChart import QChartView, QChart
 import pyqtgraph as pg
 
 import sys
 sys.path.append("../")
-from utils import make_groupbox_and_grid, make_pushbutton, calc_EMA
-# from CustomGraphicsItem import CandlestickItem
-from .CustomGraphicsItem import CandlestickItem
+from utils import make_groupbox_and_grid, make_pushbutton, calc_EMA, get_rate_via_crypto
+from CustomGraphicsItem import CandlestickItem
+# from .CustomGraphicsItem import CandlestickItem
 
 
 class ChartWindow(QDialog):
@@ -135,7 +136,8 @@ class ChartWindow(QDialog):
             self.le_end.setValidator(QIntValidator())
 
             self.button1 = make_pushbutton(
-                self, 40, 16, "Update", 14, method=self.update, color=None, isBold=False
+                self, 40, 16, "Update", 14, 
+                method=lambda data: self.update(data), color=None, isBold=False
             )
             grid_debug.addWidget(self.le_start, 0, 0)
             grid_debug.addWidget(self.le_end, 0, 1)
@@ -152,6 +154,7 @@ class ChartWindow(QDialog):
         self.grid = QGridLayout(self)
         self.grid.setSpacing(5)
     
+    @pyqtSlot(object)
     def update(self, data):
         """update(self, data) -> None
         update the inner data and graphs
@@ -164,7 +167,10 @@ class ChartWindow(QDialog):
                 ltp : latest trading price (int)
         """
         try:
-            self.updateInnerData(data)
+            if not self.DEBUG:
+                self.updateInnerData(data)
+            else:
+                self.updateInnterDataDebug()
             self.updatePlots()
         except Exception as ex:
             print(ex)
@@ -190,12 +196,6 @@ class ChartWindow(QDialog):
         elif self._latest.minute < timestamp_.minute:
             self._latest = timestamp_
             self._timestamp.append(0)
-            # self._close.pop()
-            # self._close.append(self._tmp_ohlc[-1] * 1)
-            # self._ema1.pop()
-            # self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
-            # self._ema2.pop()
-            # self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
             self._cross_signal.pop()
             self._cross_signal.append(self.judgeCrossPoint())
             self._ohlc_list.pop()
@@ -224,6 +224,28 @@ class ChartWindow(QDialog):
             self._tmp_ltp[-1]
         ]
         self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
+    
+    def updateInnterDataDebug(self):
+        """updateInnterDataDebug(self) -> None
+        """
+        if not self.DEBUG:
+            raise ValueError("This method must be used in a debug mode.")
+        self.initInnerData()
+
+        start_ = int(self.le_start.text())
+        end_ = int(self.le_end.text())
+        data_ = self.data[["open", "high", "low", "close"]].values[start_:end_]
+        for ii, row in enumerate(data_):
+            buff = np.zeros(5)
+            buff[0] = ii + 1
+            buff[1:] = row.copy()
+            self._timestamp.append(ii + 1)
+            self._close.append(row[-1])
+            self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
+            self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
+            self._cross_signal.append(self.judgeCrossPoint())
+            self._ohlc_list.append(buff.copy())
+
     
     def calcEMA(self, ema_list, alpha):
         """calcEMA(self, ema_list, alpha) -> float
@@ -274,26 +296,20 @@ class ChartWindow(QDialog):
         """updatePlots(self) -> None
         update Grpahs
         """
-        if not self.DEBUG:
-            self.chart.plot(
-                np.arange(1, len(self._close) + 1), self._close, 
-                clear=False, pen=pg.mkPen("#FFFFFF", width=2)
-            )
-        else:
-            self.chart.clear()
-            self.chart.addItem(CandlestickItem(self._ohlc_list))
-            self.chart.plot(
-                np.arange(1, len(self._timestamp) + 1), self._ema1, 
-                clear=False, pen=pg.mkPen(self._color_ema1, width=2)
-            )
-            self.chart.plot(
-                np.arange(1, len(self._timestamp) + 1), self._ema2,
-                clear=False, pen=pg.mkPen(self._color_ema2, width=2)
-            )
-            self.chart2.plot(
-                np.arange(1, len(self._timestamp) + 1), self._cross_signal,
-                clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
-            )
+        self.chart.clear()
+        self.chart.addItem(CandlestickItem(self._ohlc_list))
+        self.chart.plot(
+            np.arange(1, len(self._timestamp) + 1), self._ema1, 
+            clear=False, pen=pg.mkPen(self._color_ema1, width=2)
+        )
+        self.chart.plot(
+            np.arange(1, len(self._timestamp) + 1), self._ema2,
+            clear=False, pen=pg.mkPen(self._color_ema2, width=2)
+        )
+        self.chart2.plot(
+            np.arange(1, len(self._timestamp) + 1), self._cross_signal,
+            clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
+        )
 
     def setData(self, data):
         """setData(self, data) -> None
@@ -320,6 +336,7 @@ def main():
     #     (6., 9, 16, 8, 15),
     # ]
     fpath = r'..\data\OHLC_20181211.csv'
+    fpath = r'..\data\OHLCV_201812241200_to_201812311200.csv'
     mw.setData(fpath)
     mw.show()
     app.exec_()
