@@ -23,9 +23,11 @@ import pyqtgraph as pg
 
 import sys
 sys.path.append("../")
-from utils import make_groupbox_and_grid, make_pushbutton, calc_EMA, get_rate_via_crypto
-from CustomGraphicsItem import CandlestickItem
-# from .CustomGraphicsItem import CandlestickItem
+from utils import make_groupbox_and_grid, make_pushbutton, make_label, calc_EMA, get_rate_via_crypto
+try:
+    from CustomGraphicsItem import CandlestickItem
+except ImportError:
+    from .CustomGraphicsItem import CandlestickItem
 
 
 class ChartWindow(QDialog):
@@ -50,6 +52,7 @@ class ChartWindow(QDialog):
         self._window_height = 450 # [pixel]
         self._spacing = 5 # [pixel]
         self._groupbox_title_font_size = 14
+        self._label_font_size = 14
         self._window_color = "gray"
         self._txt_bg_color = "#D0D3D4"
 
@@ -112,12 +115,53 @@ class ChartWindow(QDialog):
         self.glw.nextRow()
         self.chart2 = self.glw.addPlot()
         self.chart2.setMaximumHeight(self._window_height // 4)
-        self.grid.addWidget(self.glw, 0, 0, 2, 1)
+        self.grid.addWidget(self.glw, 0, 0, 2, 5)
+
+        # Settings
+        group_setting, grid_setting = make_groupbox_and_grid(
+            self, 60, (self._window_height) // 3,
+            "Settings", self._groupbox_title_font_size, self._spacing
+        )
+
+        label_ema1 = make_label(
+            self, "N1", self._label_font_size, True,
+            Qt.AlignLeft
+        )
+        grid_setting.addWidget(label_ema1, 0, 0)
+
+        self.le_ema1 = QLineEdit(group_setting)
+        self.le_ema1.setText(str(self._N_ema1))
+        # font = self.le_ema1.font()
+        # font.setPointSize(self._button_font_size)
+        # self.le_ema1.setFont(font)
+        self.le_ema1.resize(40, 16)
+        self.le_ema1.setStyleSheet("background-color:{};".format(self._txt_bg_color))
+        self.le_ema1.setValidator(QIntValidator())
+        grid_setting.addWidget(self.le_ema1, 0, 1)
+
+        label_ema2 = make_label(
+            self, "N2", self._label_font_size, True,
+            Qt.AlignLeft
+        )
+        grid_setting.addWidget(label_ema2, 1, 0)
+
+        self.le_ema2 = QLineEdit(group_setting)
+        self.le_ema2.setText(str(self._N_ema2))
+        # font = self.le_ema2.font()
+        # font.setPointSize(self._button_font_size)
+        # self.le_ema2.setFont(font)
+        self.le_ema2.resize(40, 16)
+        self.le_ema2.setStyleSheet("background-color:{};".format(self._txt_bg_color))
+        self.le_ema2.setValidator(QIntValidator())
+        grid_setting.addWidget(self.le_ema2, 1, 1)
+
+        self.grid.addWidget(group_setting, 0, 6, 2, 1)
+        
 
         # Buttons in debug mode
         if self.DEBUG:
             group_debug, grid_debug = make_groupbox_and_grid(
-                self, self._window_width - 20, self._window_width - 20,
+                self, self._window_width - 20, 40,
                 "DEBUG", self._groupbox_title_font_size, self._spacing
             )
             self.le_start = QLineEdit(group_debug)
@@ -170,7 +214,7 @@ class ChartWindow(QDialog):
             if not self.DEBUG:
                 self.updateInnerData(data)
             else:
-                self.updateInnterDataDebug()
+                self.updateInnerDataDebug()
             self.updatePlots()
         except Exception as ex:
             print(ex)
@@ -225,12 +269,14 @@ class ChartWindow(QDialog):
         ]
         self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
     
-    def updateInnterDataDebug(self):
-        """updateInnterDataDebug(self) -> None
+    def updateInnerDataDebug(self):
+        """updateInnerDataDebug(self) -> None
         """
         if not self.DEBUG:
             raise ValueError("This method must be used in a debug mode.")
         self.initInnerData()
+        if self._N_ema1 != int(self.le_ema1.text()) or self._N_ema2 != int(self.le_ema2.text()):
+            self.setEmaSpan()
 
         start_ = int(self.le_start.text())
         end_ = int(self.le_end.text())
@@ -245,7 +291,14 @@ class ChartWindow(QDialog):
             self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
             self._cross_signal.append(self.judgeCrossPoint())
             self._ohlc_list.append(buff.copy())
-
+    
+    def setEmaSpan(self):
+        """setEmaSpan(self) -> None
+        set EMA spans
+        """
+        self._N_ema1 = int(self.le_ema1.text())
+        self._N_ema2 = int(self.le_ema2.text())
+        self.updateAlpha()
     
     def calcEMA(self, ema_list, alpha):
         """calcEMA(self, ema_list, alpha) -> float
@@ -306,6 +359,7 @@ class ChartWindow(QDialog):
             np.arange(1, len(self._timestamp) + 1), self._ema2,
             clear=False, pen=pg.mkPen(self._color_ema2, width=2)
         )
+        self.chart2.clear()
         self.chart2.plot(
             np.arange(1, len(self._timestamp) + 1), self._cross_signal,
             clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
@@ -335,7 +389,7 @@ def main():
     #     (5., 15, 22, 8, 9),
     #     (6., 9, 16, 8, 15),
     # ]
-    fpath = r'..\data\OHLC_20181211.csv'
+    # fpath = r'..\data\OHLC_20181211.csv'
     fpath = r'..\data\OHLCV_201812241200_to_201812311200.csv'
     mw.setData(fpath)
     mw.show()
