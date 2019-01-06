@@ -826,7 +826,7 @@ class OrderBoard(QMainWindow):
             print("@ sending order:", ex)
         
         try:
-            if "parent_order_acceptance_id" not in result:
+            if "parent_order_acceptance_id" not in result.keys():
                 parent_order_acceptance_id = self._execution_count
                 message = "no data of 'parent_order_acceptance_id'"
             else:

@@ -7,6 +7,8 @@ This file offers the following items:
 
 * ChartWindow
 """
+
+import argparse
 import copy
 from datetime import datetime
 import numpy as np
@@ -23,7 +25,8 @@ import pyqtgraph as pg
 
 import sys
 sys.path.append("../")
-from utils import make_groupbox_and_grid, make_pushbutton, make_label, calc_EMA, get_rate_via_crypto
+from utils import make_groupbox_and_grid, make_pushbutton, make_label, calc_EMA
+from utils import get_rate_via_crypto, to_dataFrame
 try:
     from CustomGraphicsItem import CandlestickItem
 except ImportError:
@@ -35,19 +38,25 @@ class ChartWindow(QDialog):
     This class offers an window to draw candlesticks on.
     """
 
-    def __init__(self, *args):
+    def __init__(self, debug=False, *args):
         """__init__(self, *args) -> None
         initialize this class
         """
         super().__init__(*args)
 
-        self.initInnerParameters()
+        self.initInnerParameters(debug)
         self.initGui()
     
-    def initInnerParameters(self):
-        """initInnerParameters(self) -> None
+    def initInnerParameters(self, debug):
+        """initInnerParameters(self, debug) -> None
         initialize the inner parameters
+
+        Parameters
+        ----------
+        debug : bool
         """
+
+        # for GUI
         self._window_width = 600 # [pixel]
         self._window_height = 450 # [pixel]
         self._spacing = 5 # [pixel]
@@ -56,20 +65,39 @@ class ChartWindow(QDialog):
         self._window_color = "gray"
         self._txt_bg_color = "#D0D3D4"
 
+        # for settings
         self._count = 0
         self._N_ema1 = 5
         self._N_ema2 = 20
         self._color_ema1 = "#3C8CE7"
         self._color_ema2 = "#EE8F1D"
         self._color_cross_signal = "#FFFFFF"
+        self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
+        self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
+
+        # for CryptoCompare
+        self._histoticks = "minute"
+        self._limit = int(4*60 - 1)
+        self.setCryptoCompareParam()
+        
+        # for inner data
         # self._plot_width = 30
         self.initInnerData()
         self.updateAlpha()
 
+        # for DEBUG
+        self.DEBUG = debug
         self.data = None
-        self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
-        self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
-        self.DEBUG = True
+    
+    def setCryptoCompareParam(self):
+        """setCryptoCompareParam(self) -> None
+        """
+        self._params_cryptocomp = {
+            "fsym": "BTC",
+            "tsym": "JPY",
+            "limit": str(self._limit),
+            "e": "bitFlyerfx",
+        }
     
     def initInnerData(self):
         """initInnerData(self) -> None
@@ -158,12 +186,14 @@ class ChartWindow(QDialog):
         self.grid.addWidget(group_setting, 0, 6, 2, 1)
         
 
-        # Buttons in debug mode
+        # Items in debug mode
         if self.DEBUG:
             group_debug, grid_debug = make_groupbox_and_grid(
                 self, self._window_width - 20, 40,
                 "DEBUG", self._groupbox_title_font_size, self._spacing
             )
+
+            ## start position
             self.le_start = QLineEdit(group_debug)
             self.le_start.setText("0")
             # font = self.le_start.font()
@@ -173,19 +203,30 @@ class ChartWindow(QDialog):
             self.le_start.setStyleSheet("background-color:{};".format(self._txt_bg_color))
             self.le_start.setValidator(QIntValidator())
 
+            ## end position
             self.le_end = QLineEdit(group_debug)
             self.le_end.setText("100")
             self.le_end.resize((self._window_width - 50)//3, 16)
             self.le_end.setStyleSheet("background-color:{};".format(self._txt_bg_color))
             self.le_end.setValidator(QIntValidator())
 
+            ## update button
             self.button1 = make_pushbutton(
                 self, 40, 16, "Update", 14, 
                 method=lambda data: self.update(data), color=None, isBold=False
             )
+
+            ## button to get OHLCV data from CryptoCompare
+            self.button2 = make_pushbutton(
+                self, 40, 16, "Get OHLC", 14, 
+                method=self.getOHLC, color=None, isBold=False
+            )
+
+            ## add
             grid_debug.addWidget(self.le_start, 0, 0)
             grid_debug.addWidget(self.le_end, 0, 1)
             grid_debug.addWidget(self.button1, 0, 2)
+            grid_debug.addWidget(self.button2, 0, 3)
 
             self.grid.addWidget(group_debug, 2, 0, 1, 1)
     
@@ -364,6 +405,12 @@ class ChartWindow(QDialog):
             np.arange(1, len(self._timestamp) + 1), self._cross_signal,
             clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
         )
+    
+    def getOHLC(self):
+        result = get_rate_via_crypto(self._histoticks, self._params_cryptocomp)
+        self.data = to_dataFrame(result, True)
+        print(self.data["time"].values[-1])
+        self.update(None)
 
     def setData(self, data):
         """setData(self, data) -> None
@@ -377,10 +424,10 @@ class ChartWindow(QDialog):
             raise TypeError("The parameter 'data' must have either DataFrame or str.")
         self._count = 0
 
-def main():
+def main(debug):
     app = QApplication([])
     # app.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "python.png")))
-    mw = ChartWindow()
+    mw = ChartWindow(debug)
     # data = [  ## fields are (time, open, close, min, max).
     #     (1., 10, 15, 5, 13),
     #     (2., 13, 20, 9, 17),
@@ -390,10 +437,30 @@ def main():
     #     (6., 9, 16, 8, 15),
     # ]
     # fpath = r'..\data\OHLC_20181211.csv'
-    fpath = r'..\data\OHLCV_201812241200_to_201812311200.csv'
-    mw.setData(fpath)
+    file_list = [
+        r'..\..\..\data\ohlcv\OHLCV_201812241200_to_201812311200.csv',
+        r'..\..\..\data\ohlcv\OHLCV_201812311201_to_201901031200.csv',
+        r'..\..\..\data\ohlcv\OHLCV_201901031201_to_201901051200.csv'
+    ]
+
+    data = None
+    for fpath in file_list:
+        if data is None:
+            data = pd.read_csv(fpath, index_col=0)
+        else:
+            data = pd.concat((data, pd.read_csv(fpath, index_col=0)))
+    # fpath = r'..\..\..\data\ohlcv\OHLCV_201901031201_to_201901051200.csv'
+    mw.setData(data)
     mw.show()
     app.exec_()
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="ChartWindow")
+    parser.add_argument('-debug', action='store', dest='debug', type=str, default="True")
+    argmnt = parser.parse_args()
+    if argmnt.debug == "True":
+        main(True)
+    elif argmnt.debug == "False":
+        main(False)
+    else:
+        raise ValueError("option 'debug' must be True or False.")
