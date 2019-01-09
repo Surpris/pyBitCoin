@@ -55,14 +55,15 @@ def initAPI():
     
     return api
 
-def find_id(t, api, verbose=False):
-    """find_id(t, api, verbose=False) -> int
+def find_id(t, api, guess=None, verbose=False):
+    """find_id(t, api, guess=None, verbose=False) -> int
     find an id which comes after and nearest to the datetime 't'.
     
     Parameters
     ----------
-    t   : datetime
-    api : API instance of pybitflyer module
+    t       : datetime
+    api     : API instance of pybitflyer module
+    guess   : int
     verbose : bool (default : False)
         if True, then call print functions to inform the current status
     
@@ -70,6 +71,7 @@ def find_id(t, api, verbose=False):
     -------
     id_ : int
     """
+    product_code = "FX_BTC_JPY"
     fmt = "%Y-%m-%dT%H:%M:%S.%f"
     fmt2 = "%Y-%m-%dT%H:%M:%S"
     count = 500
@@ -77,6 +79,9 @@ def find_id(t, api, verbose=False):
         "product_code":product_code,
         "count":count
     }
+    if guess is not None and isisntance(guess, int):
+        params["before"] = guess
+    
     id_ = -1
     datetime_ = t.strftime(fmt2)
     while True:
@@ -148,74 +153,88 @@ def get_ohlcv(ts, te, api, id_start=None, verbose=False):
     ohlcv_list = []
     ltp_list = np.empty(0, dtype=int)
     volume_list = np.empty(0, dtype=int)
+    id_next = 1*id_start_
     if verbose:
         print("main loop starts.")
     while t_start <= t_end:
-        if verbose:
-            print("start id:{}, datetime:{}".format(id_start_, t_start.strftime("%Y-%m-%dT%H:%M:%S")))
-        params = {
-            "product_code":product_code,
-            "count":count,
-            "before":id_start_ + count + 1,
-        }
-        ## get executions
-        is_success = False
-        fault_count = 0
-        while not is_success:
-            try:
-                results = api.executions(**params)[::-1]
-                is_success = True
-            except KeyboardInterrupt:
-                return pd.DataFrame(ohlcv_list, columns=["time", "open", "high", "low", "close", "volume"])
-            except:
-                fault_count += 1
-                continue
+        try:
+            if verbose:
+                print("start id:{}, datetime:{}".format(id_start_, t_start.strftime("%Y-%m-%dT%H:%M:%S")))
+            params = {
+                "product_code":product_code,
+                "count":count,
+                "before":id_next + count + 1,
+            }
+            ## get executions
+            is_success = False
+            fault_count = 0
+            while not is_success:
+                try:
+                    results = api.executions(**params)[::-1]
+                    is_success = True
+                except KeyboardInterrupt:
+                    return pd.DataFrame(ohlcv_list, columns=["time", "id_start", "open", "high", "low", "close", "volume"])
+                except:
+                    fault_count += 1
+                    continue
 
-        ## extract
-        ids_ = np.array([_res["id"] for _res in results], dtype=int)
-        ltps_ = np.array([_res["price"] for _res in results], dtype=int)
-        volumes_ = np.array([_res["size"] for _res in results], dtype=int)
-        datetimes_ = []
-        for _res in results:
-            try:
-                datetimes_.append(datetime.strptime(_res["exec_date"], fmt))
-            except ValueError:
-                datetimes_.append(datetime.strptime(_res["exec_date"], fmt2))
-        datetimes_ = np.array(datetimes_)
-        
-        ## find valid indices & extract
-        ind_id = ids_ >= id_start_
-        ind_now = (datetimes_ >= t_start) & (datetimes_ < t_next)
-        ind_next = datetimes_ >= t_next
-        ltp_list = np.hstack((ltp_list, ltps_[ind_id&ind_now]))
-        volume_list = np.hstack((volume_list, volumes_[ind_id&ind_now]))
-        
-        ## processing for next step
-        if ind_next.sum() == 0:
-            id_start_ = 1*(ids_[ind_id&ind_now])[-1]
-        else:
-            timestamp_ = t_start.timestamp()
-            ohlcv_list.append([timestamp_, ltp_list[0], ltp_list.max(), ltp_list.min(), ltp_list[-1], volume_list.sum()])
-            id_start_ = 1*(ids_[ind_id&ind_next])[-1]
-            ltp_list = np.empty(0, dtype=int)
-            ltp_list = np.hstack((ltp_list, ltps_[ind_id&ind_next]))
-            volume_list = np.empty(0, dtype=int)
-            volume_list = np.hstack((volume_list, volumes_[ind_id&ind_next]))
-            t_start += timedelta(minutes=1)
-            t_next += timedelta(minutes=1)
-            print("next id:{}, datetime:{}".format(id_start_, t_start.strftime("%Y-%m-%dT%H:%M:%S")))
+            ## extract
+            ids_ = np.array([_res["id"] for _res in results], dtype=int)
+            ltps_ = np.array([_res["price"] for _res in results], dtype=int)
+            volumes_ = np.array([_res["size"] for _res in results], dtype=int)
+            datetimes_ = []
+            for _res in results:
+                try:
+                    datetimes_.append(datetime.strptime(_res["exec_date"], fmt))
+                except ValueError:
+                    datetimes_.append(datetime.strptime(_res["exec_date"], fmt2))
+            datetimes_ = np.array(datetimes_)
+            
+            ## find valid indices & extract
+            ind_id = ids_ >= id_next
+            ind_now = (datetimes_ >= t_start) & (datetimes_ < t_next)
+            ind_next = datetimes_ >= t_next
+            ltp_list = np.hstack((ltp_list, ltps_[ind_id&ind_now]))
+            volume_list = np.hstack((volume_list, volumes_[ind_id&ind_now]))
+            
+            ## processing for next step
+            # if (ind_id&ind_now).sum() == 0:
+            #     id_start_ = 
+            #     continue
+            if ind_next.sum() == 0:
+                id_next = 1*(ids_[ind_id&ind_now])[-1]
+            else:
+                timestamp_ = t_start.timestamp()
+                ohlcv_list.append([timestamp_, id_start_, ltp_list[0], ltp_list.max(), ltp_list.min(), ltp_list[-1], volume_list.sum()])
+                id_start_ = 1*(ids_[ind_id&ind_next])[0]
+                id_next = 1*(ids_[ind_id&ind_next])[-1]
+                ltp_list = np.empty(0, dtype=int)
+                ltp_list = np.hstack((ltp_list, ltps_[ind_id&ind_next]))
+                volume_list = np.empty(0, dtype=int)
+                volume_list = np.hstack((volume_list, volumes_[ind_id&ind_next]))
+                t_start += timedelta(minutes=1)
+                t_next += timedelta(minutes=1)
+                print("next id:{}, datetime:{}".format(id_start_, t_start.strftime("%Y-%m-%dT%H:%M:%S")))
+        except KeyboardInterrupt:
+            return pd.DataFrame(ohlcv_list, columns=["time", "id_start", "open", "high", "low", "close", "volume"])
     if verbose:
-        print("finish the main loop.")
-    return pd.DataFrame(ohlcv_list, columns=["time", "open", "high", "low", "close", "volume"])
+            print("finish the main loop.")
+    return pd.DataFrame(ohlcv_list, columns=["time", "id_start", "open", "high", "low", "close", "volume"])
 
 if __name__ == "__main__":
     api = initAPI()
-    id_start = 694426164
-    t_start = datetime(2019, 1, 1, 0, 0, 0)
-    t_end = datetime(2019, 1, 7, 0, 0, 0)
+    # id_start = 694426164 # 2019/01/01
+    # id_start = 707791510 # 2019/01/07
+    # id_start = 710557268 # 2019/01/08
+    id_start = 713238915 # 2019/01/09
+    t_start = datetime(2019, 1, 9, 0, 1, 0)
+    t_end = datetime(2019, 1, 10, 0, 0, 0)
     st = time.time()
     ohlcv = get_ohlcv(t_start, t_end, api, id_start, verbose=False)
+    t_last = datetime.fromtimestamp(ohlcv["time"].values[-1]) + timedelta(hours=9)
     print("Elapsed time:{0:.2f} sec".format(time.time()-st))
 
     ohlcv.to_csv("../data/ohlcv/OHLCV_{}_to_{}.csv".\
-                format(t_start.strftime("%Y%m%d%H%M"), t_end.strftime("%Y%m%d%H%M")))
+                format(t_start.strftime("%Y%m%d%H%M"), t_last.strftime("%Y%m%d%H%M")))
+    ohlcv.to_csv("../pybitcoin/gui/data/ohlcv/OHLCV_{}_to_{}.csv".\
+                format(t_start.strftime("%Y%m%d%H%M"), t_last.strftime("%Y%m%d%H%M")))
