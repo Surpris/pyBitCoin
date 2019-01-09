@@ -72,6 +72,7 @@ class ChartWindow(QDialog):
         self._color_ema1 = "#3C8CE7"
         self._color_ema2 = "#EE8F1D"
         self._color_cross_signal = "#FFFFFF"
+        self._color_extreme_signal = "#E8EE1D"
         self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
         self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
 
@@ -113,6 +114,12 @@ class ChartWindow(QDialog):
         self._ema1 = []
         self._ema2 = []
         self._cross_signal = []
+        self._extreme_signal = []
+        self._current_max = np.Inf
+        self._current_min = -np.Inf
+        self._delta = 1.
+        self._look_for_max = None
+        
 
     def updateAlpha(self):
         """updateAlpha(self) -> None
@@ -288,6 +295,7 @@ class ChartWindow(QDialog):
 
             self._tmp_ohlc.clear()
             self._tmp_ltp.clear()
+            self._extreme_signal.append(self.judgeExtremePoint())
         else:
             self._close.pop()
             self._ema1.pop()
@@ -332,6 +340,8 @@ class ChartWindow(QDialog):
             self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
             self._cross_signal.append(self.judgeCrossPoint())
             self._ohlc_list.append(buff.copy())
+            self._extreme_signal.append(self.judgeExtremePoint())
+            self.updateExecutionState()
     
     def setEmaSpan(self):
         """setEmaSpan(self) -> None
@@ -385,6 +395,46 @@ class ChartWindow(QDialog):
             return 1.
         else:
             return 0.
+        
+    def judgeExtremePoint(self):
+        """judgeExtremePoint(self) -> float
+        judge whether one is on an extreme point
+
+        Returns
+        -------
+        judgement value (float)
+            +1.0 : on an extreme maximum
+             0.0 : not on any extreme maximum or minumum
+            -1.0 : on an extreme minimum
+        """
+        if len(self._ema1) == 0 or len(self._ema2) == 0:
+            raise ValueError("Some error occurs on the inner data.")
+        if self._look_for_max is None:
+            return 0.
+        diff = self._ema1[-1] - self._ema2[-1]
+        self._current_max = max([diff, self._current_max])
+        self._current_min = min([diff, self._current_min])
+        if self._look_for_max and diff < self._current_max - self._delta:
+            self._look_for_max = False
+            self._current_min = diff
+            return 1.
+        elif (not self._look_for_max) and diff > self._current_min + self._delta:
+            self._look_for_max = True
+            self._current_max = diff
+            return -1.
+        else:
+            return 0.
+    
+    def updateExecutionState(self):
+        """updateExecutionState(self) -> None
+        update the state of execution
+        """
+        if self._cross_signal[-1] == 1.:
+            self._look_for_max = True
+        elif self._cross_signal[-1] == -1.:
+            self._look_for_max = False
+        elif self._extreme_signal[-1] != 0.:
+            self._look_for_max = None
     
     def updatePlots(self):
         """updatePlots(self) -> None
@@ -404,6 +454,10 @@ class ChartWindow(QDialog):
         self.chart2.plot(
             np.arange(1, len(self._timestamp) + 1), self._cross_signal,
             clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
+        )
+        self.chart2.plot(
+            np.arange(1, len(self._timestamp) + 1), self._extreme_signal,
+            clear=False, pen=pg.mkPen(self._color_extreme_signal, width=2)
         )
     
     def getOHLC(self):
@@ -438,9 +492,9 @@ def main(debug):
     # ]
     # fpath = r'..\data\OHLC_20181211.csv'
     file_list = [
-        r'..\..\..\data\ohlcv\OHLCV_201812241200_to_201812311200.csv',
-        r'..\..\..\data\ohlcv\OHLCV_201812311201_to_201901031200.csv',
-        r'..\..\..\data\ohlcv\OHLCV_201901031201_to_201901051200.csv'
+        "../data/ohlcv/OHLCV_201901010000_to_201901070000.csv",
+        "../data/ohlcv/OHLCV_201901070001_to_201901080000.csv",
+        "../data/ohlcv/OHLCV_201901080001_to_201901090000.csv",
     ]
 
     data = None
@@ -449,7 +503,6 @@ def main(debug):
             data = pd.read_csv(fpath, index_col=0)
         else:
             data = pd.concat((data, pd.read_csv(fpath, index_col=0)))
-    # fpath = r'..\..\..\data\ohlcv\OHLCV_201901031201_to_201901051200.csv'
     mw.setData(data)
     mw.show()
     app.exec_()
