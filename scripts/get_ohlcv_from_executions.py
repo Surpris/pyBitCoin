@@ -226,9 +226,11 @@ if __name__ == "__main__":
     # id_start = 694426164 # 2019/01/01
     # id_start = 707791510 # 2019/01/07
     # id_start = 710557268 # 2019/01/08
-    id_start = 713238915 # 2019/01/09
-    t_start = datetime(2019, 1, 9, 0, 1, 0)
-    t_end = datetime(2019, 1, 10, 0, 0, 0)
+    # id_start = 713238915 # 2019/01/09
+    id_start = 715822823 # 2019/01/10
+    id_start = 718327164 # 2019/01/11
+    t_start = datetime(2019, 1, 11, 0, 1, 0)
+    t_end = datetime(2019, 1, 12, 0, 0, 0)
     st = time.time()
     ohlcv = get_ohlcv(t_start, t_end, api, id_start, verbose=False)
     t_last = datetime.fromtimestamp(ohlcv["time"].values[-1]) + timedelta(hours=9)

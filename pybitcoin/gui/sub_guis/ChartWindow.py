@@ -66,15 +66,20 @@ class ChartWindow(QDialog):
         self._txt_bg_color = "#D0D3D4"
 
         # for settings
+        self._btc_volime = 1.
         self._count = 0
         self._N_ema1 = 5
         self._N_ema2 = 20
+        self._delta = 1. # for judgement of extreme maxima / minima
+        self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
+        self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
+
+        # for chart
         self._color_ema1 = "#3C8CE7"
         self._color_ema2 = "#EE8F1D"
         self._color_cross_signal = "#FFFFFF"
         self._color_extreme_signal = "#E8EE1D"
-        self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
-        self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
+        self._color_stock = "#FFFFFF"
 
         # for CryptoCompare
         self._histoticks = "minute"
@@ -117,8 +122,11 @@ class ChartWindow(QDialog):
         self._extreme_signal = []
         self._current_max = np.Inf
         self._current_min = -np.Inf
-        self._delta = 1.
         self._look_for_max = None
+        self._jpy_list = []
+        self._current_state = "wait"
+        self._order_ltp = 0
+        self._stop_by_cross = False
         
 
     def updateAlpha(self):
@@ -148,8 +156,13 @@ class ChartWindow(QDialog):
         self.chart = self.glw.addPlot()
 
         self.glw.nextRow()
-        self.chart2 = self.glw.addPlot()
-        self.chart2.setMaximumHeight(self._window_height // 4)
+        self.chart_signal = self.glw.addPlot()
+        self.chart_signal.setMaximumHeight(self._window_height // 4)
+
+        self.glw.nextRow()
+        self.chart_stock = self.glw.addPlot()
+        self.chart_stock.setMaximumHeight(self._window_height // 4)
+
         self.grid.addWidget(self.glw, 0, 0, 2, 5)
 
         # Settings
@@ -190,7 +203,51 @@ class ChartWindow(QDialog):
         self.le_ema2.setValidator(QIntValidator())
         grid_setting.addWidget(self.le_ema2, 1, 1)
 
-        self.grid.addWidget(group_setting, 0, 6, 2, 1)
+        label_delta = make_label(
+            self, "delta", self._label_font_size, True,
+            Qt.AlignLeft
+        )
+        grid_setting.addWidget(label_delta, 2, 0)
+
+        self.le_delta = QLineEdit(group_setting)
+        self.le_delta.setText(str(self._delta))
+        # font = self.le_delta.font()
+        # font.setPointSize(self._button_font_size)
+        # self.le_delta.setFont(font)
+        self.le_delta.resize(40, 16)
+        self.le_delta.setStyleSheet("background-color:{};".format(self._txt_bg_color))
+        self.le_delta.setValidator(QDoubleValidator())
+        grid_setting.addWidget(self.le_delta, 2, 1)
+
+        self.grid.addWidget(group_setting, 0, 6, 1, 1)
+
+        # Results
+        group_results, grid_results = make_groupbox_and_grid(
+            self, 60, (self._window_height) // 3,
+            "Results", self._groupbox_title_font_size, self._spacing
+        )
+        label_benefit = make_label(
+            group_results, "Benefit", self._label_font_size, True,
+            Qt.AlignLeft
+        )
+        self.label_benefit_value = make_label(
+            group_results, "0", self._label_font_size, True,
+            Qt.AlignLeft
+        )
+        label_perday = make_label(
+            group_results, "Per day", self._label_font_size, True,
+            Qt.AlignLeft
+        )
+        self.label_perday_value = make_label(
+            group_results, "0", self._label_font_size, True,
+            Qt.AlignLeft
+        )
+        grid_results.addWidget(label_benefit, 0, 0)
+        grid_results.addWidget(self.label_benefit_value, 1, 0)
+        grid_results.addWidget(label_perday, 2, 0)
+        grid_results.addWidget(self.label_perday_value, 3, 0)
+
+        self.grid.addWidget(group_results, 1, 6, 1, 1)
         
 
         # Items in debug mode
@@ -317,6 +374,7 @@ class ChartWindow(QDialog):
             self._tmp_ltp[-1]
         ]
         self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
+        self.updateExecutionState()
     
     def updateInnerDataDebug(self):
         """updateInnerDataDebug(self) -> None
@@ -326,9 +384,13 @@ class ChartWindow(QDialog):
         self.initInnerData()
         if self._N_ema1 != int(self.le_ema1.text()) or self._N_ema2 != int(self.le_ema2.text()):
             self.setEmaSpan()
+        if self._delta != float(self.le_delta.text()):
+            self._delta = float(self.le_delta.text())
 
         start_ = int(self.le_start.text())
-        end_ = int(self.le_end.text())
+        if start_ >= len(self.data):
+            raise ValueError('start must be smaller than the length of data.')
+        end_ = min([int(self.le_end.text()), len(self.data)])
         data_ = self.data[["open", "high", "low", "close"]].values[start_:end_]
         for ii, row in enumerate(data_):
             buff = np.zeros(5)
@@ -338,10 +400,12 @@ class ChartWindow(QDialog):
             self._close.append(row[-1])
             self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
             self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
-            self._cross_signal.append(self.judgeCrossPoint())
             self._ohlc_list.append(buff.copy())
+            self._cross_signal.append(self.judgeCrossPoint())
             self._extreme_signal.append(self.judgeExtremePoint())
-            self.updateExecutionState()
+            self.updateExecutionStateDebug()
+        
+        self.updateResults()
     
     def setEmaSpan(self):
         """setEmaSpan(self) -> None
@@ -429,12 +493,74 @@ class ChartWindow(QDialog):
         """updateExecutionState(self) -> None
         update the state of execution
         """
-        if self._cross_signal[-1] == 1.:
+        pass
+
+    def updateExecutionStateDebug(self):
+        """updateExecutionStateDebug(self) -> None
+        update the state of execution in debug mode
+        """
+        if len(self._close) == 1:
+            self._jpy_list.append(0)
+            return
+        self._jpy_list.append(self._jpy_list[-1])
+        if self._current_state == "ask":
+            if self._stop_by_cross: # when the previous state is "buy" 
+                ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+                self._jpy_list[-1] += - (ltp_ - self._order_ltp)
+            #     self._jpy_list.append(self._jpy_list[-1] - (ltp_ - self._order_ltp))
+            # else:
+            #     self._jpy_list.append(self._jpy_list[-1])
+            self._order_ltp = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])    
+            self._current_state = "sell"
+        elif self._current_state == "bid":
+            if self._stop_by_cross: # when the previous state is "sell" 
+                ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+                self._jpy_list[-1] += ltp_ - self._order_ltp
+            #     self._jpy_list.append(self._jpy_list[-1] + ltp_ - self._order_ltp)
+            # else:
+            #     self._jpy_list.append(self._jpy_list[-1])
+            self._order_ltp = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+            self._current_state = "buy"
+        elif self._current_state == "sell":
+            if self._extreme_signal[-2] == 1.:
+                ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+                self._jpy_list[-1] += ltp_ - self._order_ltp
+                # self._jpy_list.append(self._jpy_list[-1] + ltp_ - self._order_ltp)
+                self._order_ltp = 0
+                self._current_state = "wait"
+                self._look_for_max = None
+            # else:
+            #     self._jpy_list.append(self._jpy_list[-1])
+        elif self._current_state == "buy":
+            if self._extreme_signal[-2] == -1.:
+                ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+                self._jpy_list[-1] += - (ltp_ - self._order_ltp)
+                # self._jpy_list.append(self._jpy_list[-1] - (ltp_ - self._order_ltp))
+                self._order_ltp = 0
+                self._current_state = "wait"
+                self._look_for_max = None
+        #     else:
+        #         self._jpy_list.append(self._jpy_list[-1])
+        # else:
+        #     self._jpy_list.append(self._jpy_list[-1])
+        if self._cross_signal[-1] == 1.: # ask in the next step
+            if self._current_state == "buy":
+                self._stop_by_cross == True
             self._look_for_max = True
-        elif self._cross_signal[-1] == -1.:
+            self._current_state = "ask"
+        elif self._cross_signal[-1] == -1.: # bid in the next step
+            if self._current_state == "sell":
+                self._stop_by_cross == True
             self._look_for_max = False
-        elif self._extreme_signal[-1] != 0.:
-            self._look_for_max = None
+            self._current_state = "bid"
+    
+    def updateResults(self):
+        """updateResults(self) -> None
+        update the results of trades
+        """
+        self.label_benefit_value.setText(str(self._jpy_list[-1]))
+        days = len(self._jpy_list) / 1440.
+        self.label_perday_value.setText("{0:.2f}".format(float(self._jpy_list[-1]) / days))
     
     def updatePlots(self):
         """updatePlots(self) -> None
@@ -450,21 +576,27 @@ class ChartWindow(QDialog):
             np.arange(1, len(self._timestamp) + 1), self._ema2,
             clear=False, pen=pg.mkPen(self._color_ema2, width=2)
         )
-        self.chart2.clear()
-        self.chart2.plot(
+        self.chart_signal.clear()
+        self.chart_signal.plot(
             np.arange(1, len(self._timestamp) + 1), self._cross_signal,
             clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
         )
-        self.chart2.plot(
+        self.chart_signal.plot(
             np.arange(1, len(self._timestamp) + 1), self._extreme_signal,
             clear=False, pen=pg.mkPen(self._color_extreme_signal, width=2)
         )
+        self.chart_stock.clear()
+        self.chart_stock.plot(
+            np.arange(1, len(self._timestamp) + 1), self._jpy_list,
+            clear=False, pen=pg.mkPen(self._color_stock, width=2)
+        )
     
     def getOHLC(self):
-        result = get_rate_via_crypto(self._histoticks, self._params_cryptocomp)
-        self.data = to_dataFrame(result, True)
-        print(self.data["time"].values[-1])
-        self.update(None)
+        pass
+        # result = get_rate_via_crypto(self._histoticks, self._params_cryptocomp)
+        # self.data = to_dataFrame(result, True)
+        # print(self.data["time"].values[-1])
+        # self.update(None)
 
     def setData(self, data):
         """setData(self, data) -> None
