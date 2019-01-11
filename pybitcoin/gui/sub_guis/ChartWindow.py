@@ -8,15 +8,13 @@ This file offers the following items:
 * ChartWindow
 """
 
-import argparse
 import copy
 from datetime import datetime
 import numpy as np
-import os
 import pandas as pd
-from PyQt5.QtWidgets import QMainWindow, QDialog, QGridLayout, QMenu, QWidget, QLabel, QLineEdit, QTextEdit
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QPainter
+from PyQt5.QtWidgets import QMainWindow, QDialog, QGridLayout, QWidget, QLabel, QLineEdit
+from PyQt5.QtWidgets import QApplication, QCheckBox
+from PyQt5.QtGui import QPainter, QPalette, QColor
 from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import pyqtSlot
@@ -58,12 +56,13 @@ class ChartWindow(QDialog):
 
         # for GUI
         self._window_width = 600 # [pixel]
-        self._window_height = 450 # [pixel]
+        self._window_height = 600 # [pixel]
         self._spacing = 5 # [pixel]
         self._groupbox_title_font_size = 14
         self._label_font_size = 14
         self._window_color = "gray"
         self._txt_bg_color = "#D0D3D4"
+        self._chk_box_bg_color = "#FFFFFF"
 
         # for settings
         self._btc_volime = 1.
@@ -286,11 +285,23 @@ class ChartWindow(QDialog):
                 method=self.getOHLC, color=None, isBold=False
             )
 
+            ## checkbox to use the average values of each OHLC as order ltps
+            self.chk_use_average = QCheckBox(group_debug)
+            pal = QPalette()
+            pal.setColor(QPalette.Foreground, QColor(self._chk_box_bg_color))
+            # pal.setColor(QPalette.Active, QColor("white"))
+            self.chk_use_average.setPalette(pal)
+            # self.chk_use_average.setStyleSheet("background-color:{};".format(self._chk_bg_color))
+            self.chk_use_average.setChecked(False)
+            self.chk_use_average.resize(16, 16)
+            # self.chk_use_average.stateChanged.connect(self.setTxtBTCJPYEditState)
+
             ## add
             grid_debug.addWidget(self.le_start, 0, 0)
             grid_debug.addWidget(self.le_end, 0, 1)
-            grid_debug.addWidget(self.button1, 0, 2)
-            grid_debug.addWidget(self.button2, 0, 3)
+            grid_debug.addWidget(self.chk_use_average, 0, 2)
+            grid_debug.addWidget(self.button1, 1, 0)
+            grid_debug.addWidget(self.button2, 1, 1)
 
             self.grid.addWidget(group_debug, 2, 0, 1, 1)
     
@@ -504,45 +515,43 @@ class ChartWindow(QDialog):
             return
         self._jpy_list.append(self._jpy_list[-1])
         if self._current_state == "ask":
-            if self._stop_by_cross: # when the previous state is "buy" 
-                ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+            if self._stop_by_cross: # when the previous state is "buy"
+                if self.chk_use_average.isChecked():
+                    ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
+                else:
+                    ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
                 self._jpy_list[-1] += - (ltp_ - self._order_ltp)
-            #     self._jpy_list.append(self._jpy_list[-1] - (ltp_ - self._order_ltp))
-            # else:
-            #     self._jpy_list.append(self._jpy_list[-1])
             self._order_ltp = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])    
             self._current_state = "sell"
         elif self._current_state == "bid":
-            if self._stop_by_cross: # when the previous state is "sell" 
-                ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+            if self._stop_by_cross: # when the previous state is "sell"
+                if self.chk_use_average.isChecked():
+                    ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
+                else:
+                    ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
                 self._jpy_list[-1] += ltp_ - self._order_ltp
-            #     self._jpy_list.append(self._jpy_list[-1] + ltp_ - self._order_ltp)
-            # else:
-            #     self._jpy_list.append(self._jpy_list[-1])
             self._order_ltp = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
             self._current_state = "buy"
         elif self._current_state == "sell":
             if self._extreme_signal[-2] == 1.:
-                ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+                if self.chk_use_average.isChecked():
+                    ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
+                else:
+                    ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
                 self._jpy_list[-1] += ltp_ - self._order_ltp
-                # self._jpy_list.append(self._jpy_list[-1] + ltp_ - self._order_ltp)
                 self._order_ltp = 0
                 self._current_state = "wait"
                 self._look_for_max = None
-            # else:
-            #     self._jpy_list.append(self._jpy_list[-1])
         elif self._current_state == "buy":
             if self._extreme_signal[-2] == -1.:
-                ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+                if self.chk_use_average.isChecked():
+                    ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
+                else:
+                    ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
                 self._jpy_list[-1] += - (ltp_ - self._order_ltp)
-                # self._jpy_list.append(self._jpy_list[-1] - (ltp_ - self._order_ltp))
                 self._order_ltp = 0
                 self._current_state = "wait"
                 self._look_for_max = None
-        #     else:
-        #         self._jpy_list.append(self._jpy_list[-1])
-        # else:
-        #     self._jpy_list.append(self._jpy_list[-1])
         if self._cross_signal[-1] == 1.: # ask in the next step
             if self._current_state == "buy":
                 self._stop_by_cross == True
@@ -602,35 +611,20 @@ class ChartWindow(QDialog):
         """setData(self, data) -> None
         set data
         """
-        if isinstance(data, pd.DataFrame):
-            self.data = data
-        elif isinstance(data, str):
-            self.data = pd.read_csv(data, index_col=0)
-        else:
-            raise TypeError("The parameter 'data' must have either DataFrame or str.")
+        if not self.DEBUG:
+            raise ValueError("This method is valid only in debug mode.")
+        self.data = data
         self._count = 0
 
 def main(debug):
     app = QApplication([])
-    # app.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "python.png")))
     mw = ChartWindow(debug)
-    # data = [  ## fields are (time, open, close, min, max).
-    #     (1., 10, 15, 5, 13),
-    #     (2., 13, 20, 9, 17),
-    #     (3., 17, 23, 11, 14),
-    #     (4., 14, 19, 5, 15),
-    #     (5., 15, 22, 8, 9),
-    #     (6., 9, 16, 8, 15),
-    # ]
-    # fpath = r'..\data\OHLC_20181211.csv'
-    file_list = [
-        "../data/ohlcv/OHLCV_201901010000_to_201901070000.csv",
-        "../data/ohlcv/OHLCV_201901070001_to_201901080000.csv",
-        "../data/ohlcv/OHLCV_201901080001_to_201901090000.csv",
-    ]
 
+    import glob
+    file_list = glob.glob("../data/ohlcv/OHLCV*.csv")
     data = None
     for fpath in file_list:
+        print(fpath)
         if data is None:
             data = pd.read_csv(fpath, index_col=0)
         else:
@@ -640,6 +634,7 @@ def main(debug):
     app.exec_()
 
 if __name__ == "__main__":
+    import argparse
     parser = argparse.ArgumentParser(description="ChartWindow")
     parser.add_argument('-debug', action='store', dest='debug', type=str, default="True")
     argmnt = parser.parse_args()
