@@ -79,7 +79,7 @@ def find_id(t, api, guess=None, verbose=False):
         "product_code":product_code,
         "count":count
     }
-    if guess is not None and isisntance(guess, int):
+    if guess is not None and isinstance(guess, int):
         params["before"] = guess
     
     id_ = -1
@@ -229,9 +229,10 @@ if __name__ == "__main__":
     # id_start = 713238915 # 2019/01/09
     # id_start = 715822823 # 2019/01/10
     # id_start = 718327164 # 2019/01/11
-    id_start = 721123808 #  2019/01/12
-    t_start = datetime(2019, 1, 12, 0, 1, 0)
-    t_end = datetime(2019, 1, 13, 0, 0, 0)
+    # id_start = 721123808 #  2019/01/12
+    id_start = 723565551 # 2019/01/13
+    t_start = datetime(2019, 1, 13, 0, 1, 0)
+    t_end = datetime(2019, 1, 14, 0, 0, 0)
     st = time.time()
     ohlcv = get_ohlcv(t_start, t_end, api, id_start, verbose=False)
     t_last = datetime.fromtimestamp(ohlcv["time"].values[-1]) + timedelta(hours=9)
