@@ -61,7 +61,10 @@ def symbolize(dataFrame, k):
     """
     if k <= 0:
         raise ValueError("k must be >=1.")
-    var_ = (dataFrame["Close"] - dataFrame["Open"]).values
+    try:
+        var_ = (dataFrame["Close"] - dataFrame["Open"]).values
+    except KeyError:
+        var_ = (dataFrame["close"] - dataFrame["open"]).values
     dec = np.zeros(len(var_), int)
     
     for ii in range(k-1, len(var_)):

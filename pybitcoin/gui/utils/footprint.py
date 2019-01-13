@@ -39,6 +39,6 @@ def footprint(func, loglevel="debug"):
     def wrapper(*args,**kwargs):
         _loggers[loglevel](">> {}()".format(func.__name__))
         func(*args,**kwargs)
-        nowtime = datetime.datetime.now().strftime(_dtformat)
+        # nowtime = datetime.datetime.now().strftime(_dtformat)
         _loggers[loglevel]("<< {}()".format(func.__name__))
     return wrapper
