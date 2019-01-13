@@ -20,11 +20,13 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtCore import pyqtSlot
 # from PyQt5.QtChart import QChartView, QChart
 import pyqtgraph as pg
-
 import sys
 sys.path.append("../")
+import time
+
 from utils import make_groupbox_and_grid, make_pushbutton, make_label, calc_EMA
 from utils import get_rate_via_crypto, to_dataFrame
+from utils import analyze
 try:
     from CustomGraphicsItem import CandlestickItem
 except ImportError:
@@ -55,8 +57,8 @@ class ChartWindow(QDialog):
         """
 
         # for GUI
-        self._window_width = 600 # [pixel]
-        self._window_height = 600 # [pixel]
+        self._window_width = 720 # [pixel]
+        self._window_height = 720 # [pixel]
         self._spacing = 5 # [pixel]
         self._groupbox_title_font_size = 14
         self._label_font_size = 14
@@ -72,6 +74,8 @@ class ChartWindow(QDialog):
         self._delta = 1. # for judgement of extreme maxima / minima
         self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
         self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
+        self._N_benefit = 5
+        self._N_dec = 5
 
         # for chart
         self._color_ema1 = "#3C8CE7"
@@ -80,13 +84,14 @@ class ChartWindow(QDialog):
         self._color_extreme_signal = "#E8EE1D"
         self._color_stock = "#FFFFFF"
 
+        self._color_stat = "#2FC4DF"
+
         # for CryptoCompare
         self._histoticks = "minute"
         self._limit = int(4*60 - 1)
         self.setCryptoCompareParam()
         
         # for inner data
-        # self._plot_width = 30
         self.initInnerData()
         self.updateAlpha()
 
@@ -108,12 +113,20 @@ class ChartWindow(QDialog):
         """initInnerData(self) -> None
         initialize the inner data
         """
+        self.initOHLCVData()
+        self.initAnalysisData()
+
+    def initOHLCVData(self):
+        """initOHLCVData(self) -> None
+        intialize the inner data related to charts of OHLCV
+        """
         self._timestamp = []
         self._latest = None
         self._tmp_ltp = []
         self._tmp_ohlc = []
         self._ltp = []
         self._ohlc_list = []
+        self._volume_list = []
         self._close = []
         self._ema1 = []
         self._ema2 = []
@@ -126,7 +139,16 @@ class ChartWindow(QDialog):
         self._current_state = "wait"
         self._order_ltp = 0
         self._stop_by_cross = False
-        
+    
+    def initAnalysisData(self):
+        """initAnalysisData(self) -> None
+        initialize the inner data related to analysis
+        """
+        self._benefit_map = np.zeros((self._N_benefit + 1, self._N_benefit + 1), dtype=int)
+        self._stat_dead_list = []
+        self._stat_golden_list = []
+        self._ext_dead_list = []
+        self._ext_golden_list = []
 
     def updateAlpha(self):
         """updateAlpha(self) -> None
@@ -148,31 +170,74 @@ class ChartWindow(QDialog):
         else:
             self.setWindowTitle("CandleStick")
         
-        # Plot area
+        # plots and charts
         self.glw = pg.GraphicsLayoutWidget()
-        self.glw.resize(self._window_width - 20, self._window_height - 20)
 
-        self.chart = self.glw.addPlot()
+        ## benefit map
+        self.plot_benefit = self.glw.addPlot(
+            # axisItems={"bottom":self.iw_axBottom, "left":self.iw_axLeft}
+        )
+        self.plot_benefit.setAspectLocked(True)
+        # self.plot_benefit.setMaximumWidth(100)
+        self.img_benefit = pg.ImageItem()
+        self.plot_benefit.addItem(self.img_benefit)
+
+        # self.label_coor_value = make_label(
+        #     group_analysis, "(NA,NA)", self._label_font_size, True, Qt.AlignLeft
+        # )
+
+        def mouseMoved(pos):
+            try:
+                coor = self.img_benefit.mapFromScene(pos)
+                x, y = int(coor.x()), int(coor.y())
+                if self.img_benefit.image is not None:
+                    img = self.img_benefit.image
+                    if 0 <= x <= img.shape[1] and 0 <= y <= img.shape[0]:
+                        pass
+                        # self.label_coor_value.setText("({0}, {1}, {2:.2e})".format(x, y, img[y, x]))
+            except Exception as ex:
+                print(ex)
+        
+        self.img_benefit.scene().sigMouseMoved.connect(mouseMoved)
+
+        ## OHLC chart
+        self.chart_ohlc = self.glw.addPlot()
 
         self.glw.nextRow()
+
+        ## Box plot diagram for dead cross
+        self.plot_box_dead = self.glw.addPlot()
+        # self.plot_box_dead.setMaximumWidth(100)
+
+        ## volume chart
+        self.chart_volume = self.glw.addPlot()
+        # self.chart_volume.setMaximumHeight(self._window_height // 6)
+
+        self.glw.nextRow()
+
+        ## Box plot diagram for golden cross
+        self.plot_box_golden = self.glw.addPlot()
+        # self.plot_box_golden.setMaximumWidth(100)
+
+        ## signal chart
         self.chart_signal = self.glw.addPlot()
-        self.chart_signal.setMaximumHeight(self._window_height // 4)
+        # self.chart_signal.setMaximumHeight(self._window_height // 6)
 
         self.glw.nextRow()
-        self.chart_stock = self.glw.addPlot()
-        self.chart_stock.setMaximumHeight(self._window_height // 4)
+        _ = self.glw.addPlot()
 
-        self.grid.addWidget(self.glw, 0, 0, 2, 5)
+        ## stock chart
+        self.chart_stock = self.glw.addPlot()
+        # self.chart_stock.setMaximumHeight(self._window_height // 6)
 
         # Settings
         group_setting, grid_setting = make_groupbox_and_grid(
-            self, 60, (self._window_height) // 3,
+            self, 40, (self._window_height) // 3,
             "Settings", self._groupbox_title_font_size, self._spacing
         )
 
         label_ema1 = make_label(
-            self, "N1", self._label_font_size, True,
-            Qt.AlignLeft
+            group_setting, "N1", self._label_font_size, True, Qt.AlignLeft
         )
         grid_setting.addWidget(label_ema1, 0, 0)
 
@@ -181,14 +246,15 @@ class ChartWindow(QDialog):
         # font = self.le_ema1.font()
         # font.setPointSize(self._button_font_size)
         # self.le_ema1.setFont(font)
-        self.le_ema1.resize(40, 16)
+        self.le_ema1.setMaximumWidth(40)
+        self.le_ema1.setMaximumHeight(16)
+        # self.le_ema1.resize(20, 16)
         self.le_ema1.setStyleSheet("background-color:{};".format(self._txt_bg_color))
         self.le_ema1.setValidator(QIntValidator())
         grid_setting.addWidget(self.le_ema1, 0, 1)
 
         label_ema2 = make_label(
-            self, "N2", self._label_font_size, True,
-            Qt.AlignLeft
+            group_setting, "N2", self._label_font_size, True, Qt.AlignLeft
         )
         grid_setting.addWidget(label_ema2, 1, 0)
 
@@ -197,14 +263,15 @@ class ChartWindow(QDialog):
         # font = self.le_ema2.font()
         # font.setPointSize(self._button_font_size)
         # self.le_ema2.setFont(font)
-        self.le_ema2.resize(40, 16)
+        self.le_ema2.setMaximumWidth(40)
+        self.le_ema2.setMaximumHeight(16)
+        # self.le_ema2.resize(20, 16)
         self.le_ema2.setStyleSheet("background-color:{};".format(self._txt_bg_color))
         self.le_ema2.setValidator(QIntValidator())
         grid_setting.addWidget(self.le_ema2, 1, 1)
 
         label_delta = make_label(
-            self, "delta", self._label_font_size, True,
-            Qt.AlignLeft
+            group_setting, "delta", self._label_font_size, True, Qt.AlignLeft
         )
         grid_setting.addWidget(label_delta, 2, 0)
 
@@ -213,46 +280,43 @@ class ChartWindow(QDialog):
         # font = self.le_delta.font()
         # font.setPointSize(self._button_font_size)
         # self.le_delta.setFont(font)
-        self.le_delta.resize(40, 16)
+        self.le_delta.setMaximumWidth(40)
+        self.le_delta.setMaximumHeight(16)
         self.le_delta.setStyleSheet("background-color:{};".format(self._txt_bg_color))
         self.le_delta.setValidator(QDoubleValidator())
         grid_setting.addWidget(self.le_delta, 2, 1)
 
-        self.grid.addWidget(group_setting, 0, 6, 1, 1)
-
         # Results
         group_results, grid_results = make_groupbox_and_grid(
-            self, 60, (self._window_height) // 3,
+            self, 40, (self._window_height) // 3,
             "Results", self._groupbox_title_font_size, self._spacing
         )
         label_benefit = make_label(
-            group_results, "Benefit", self._label_font_size, True,
-            Qt.AlignLeft
+            group_results, "Benefit", self._label_font_size, True, Qt.AlignLeft
         )
         self.label_benefit_value = make_label(
-            group_results, "0", self._label_font_size, True,
-            Qt.AlignLeft
+            group_results, "0", self._label_font_size, True, Qt.AlignLeft
         )
         label_perday = make_label(
-            group_results, "Per day", self._label_font_size, True,
-            Qt.AlignLeft
+            group_results, "Per day", self._label_font_size, True, Qt.AlignLeft
         )
         self.label_perday_value = make_label(
-            group_results, "0", self._label_font_size, True,
-            Qt.AlignLeft
+            group_results, "0", self._label_font_size, True, Qt.AlignLeft
         )
+
         grid_results.addWidget(label_benefit, 0, 0)
         grid_results.addWidget(self.label_benefit_value, 1, 0)
         grid_results.addWidget(label_perday, 2, 0)
         grid_results.addWidget(self.label_perday_value, 3, 0)
 
-        self.grid.addWidget(group_results, 1, 6, 1, 1)
-        
+        self.grid.addWidget(self.glw, 0, 0, 3, 5)
+        self.grid.addWidget(group_setting, 0, 5, 1, 1)
+        self.grid.addWidget(group_results, 1, 5, 1, 1)
 
         # Items in debug mode
         if self.DEBUG:
             group_debug, grid_debug = make_groupbox_and_grid(
-                self, self._window_width - 20, 40,
+                self, 60, self._window_height // 3,
                 "DEBUG", self._groupbox_title_font_size, self._spacing
             )
 
@@ -262,28 +326,16 @@ class ChartWindow(QDialog):
             # font = self.le_start.font()
             # font.setPointSize(self._button_font_size)
             # self.le_start.setFont(font)
-            self.le_start.resize((self._window_width - 50)//3, 16)
+            self.le_start.resize(40, 16)
             self.le_start.setStyleSheet("background-color:{};".format(self._txt_bg_color))
             self.le_start.setValidator(QIntValidator())
 
             ## end position
             self.le_end = QLineEdit(group_debug)
             self.le_end.setText("100")
-            self.le_end.resize((self._window_width - 50)//3, 16)
+            self.le_end.resize(40, 16)
             self.le_end.setStyleSheet("background-color:{};".format(self._txt_bg_color))
             self.le_end.setValidator(QIntValidator())
-
-            ## update button
-            self.button1 = make_pushbutton(
-                self, 40, 16, "Update", 14, 
-                method=lambda data: self.update(data), color=None, isBold=False
-            )
-
-            ## button to get OHLCV data from CryptoCompare
-            self.button2 = make_pushbutton(
-                self, 40, 16, "Get OHLC", 14, 
-                method=self.getOHLC, color=None, isBold=False
-            )
 
             ## checkbox to use the average values of each OHLC as order ltps
             self.chk_use_average = QCheckBox(group_debug)
@@ -296,14 +348,37 @@ class ChartWindow(QDialog):
             self.chk_use_average.resize(16, 16)
             # self.chk_use_average.stateChanged.connect(self.setTxtBTCJPYEditState)
 
+            ## update button
+            self.button1 = make_pushbutton(
+                self, 40, 16, "Update", 14, 
+                method=lambda data: self.update(data), color=None, isBold=False
+            )
+
+            ## button to get OHLCV data from CryptoCompare
+            # self.button2 = make_pushbutton(
+            #     self, 40, 16, "Get OHLC", 14, 
+            #     method=self.getOHLC, color=None, isBold=False
+            # )
+
+            self.button3 = make_pushbutton(
+                self, 40, 16, "Analyze", 14, 
+                method=self.analyze, color=None, isBold=False
+            )
+
+            self.button4 = make_pushbutton(
+                self, 40, 16, "View", 14, 
+                method=self.updateAnalysisResults, color=None, isBold=False
+            )
+
             ## add
             grid_debug.addWidget(self.le_start, 0, 0)
-            grid_debug.addWidget(self.le_end, 0, 1)
-            grid_debug.addWidget(self.chk_use_average, 0, 2)
-            grid_debug.addWidget(self.button1, 1, 0)
-            grid_debug.addWidget(self.button2, 1, 1)
+            grid_debug.addWidget(self.le_end, 1, 0)
+            grid_debug.addWidget(self.chk_use_average, 2, 0)
+            grid_debug.addWidget(self.button1, 3, 0)
+            grid_debug.addWidget(self.button3, 4, 0)
+            grid_debug.addWidget(self.button4, 5, 0)
 
-            self.grid.addWidget(group_debug, 2, 0, 1, 1)
+            self.grid.addWidget(group_debug, 2, 5, 1, 1)
     
     def initMainGrid(self):
         """ initMainWidget(self) -> None
@@ -403,12 +478,14 @@ class ChartWindow(QDialog):
             raise ValueError('start must be smaller than the length of data.')
         end_ = min([int(self.le_end.text()), len(self.data)])
         data_ = self.data[["open", "high", "low", "close"]].values[start_:end_]
+        volume_ = self.data["volume"].values[start_:end_]
         for ii, row in enumerate(data_):
             buff = np.zeros(5)
             buff[0] = ii + 1
             buff[1:] = row.copy()
             self._timestamp.append(ii + 1)
             self._close.append(row[-1])
+            self._volume_list.append(volume_[ii])
             self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
             self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
             self._ohlc_list.append(buff.copy())
@@ -575,16 +652,23 @@ class ChartWindow(QDialog):
         """updatePlots(self) -> None
         update Grpahs
         """
-        self.chart.clear()
-        self.chart.addItem(CandlestickItem(self._ohlc_list))
-        self.chart.plot(
+        self.chart_ohlc.clear()
+        self.chart_ohlc.addItem(CandlestickItem(self._ohlc_list))
+        self.chart_ohlc.plot(
             np.arange(1, len(self._timestamp) + 1), self._ema1, 
             clear=False, pen=pg.mkPen(self._color_ema1, width=2)
         )
-        self.chart.plot(
+        self.chart_ohlc.plot(
             np.arange(1, len(self._timestamp) + 1), self._ema2,
             clear=False, pen=pg.mkPen(self._color_ema2, width=2)
         )
+        
+        self.chart_volume.clear()
+        self.chart_volume.plot(
+            np.arange(1, len(self._timestamp) + 1), self._volume_list,
+            clear=False, pen=pg.mkPen("#FFFFFF", width=2)
+        )
+
         self.chart_signal.clear()
         self.chart_signal.plot(
             np.arange(1, len(self._timestamp) + 1), self._cross_signal,
@@ -601,12 +685,61 @@ class ChartWindow(QDialog):
         )
     
     def getOHLC(self):
-        pass
-        # result = get_rate_via_crypto(self._histoticks, self._params_cryptocomp)
-        # self.data = to_dataFrame(result, True)
-        # print(self.data["time"].values[-1])
-        # self.update(None)
+        """getOHLC(self)
+        """
+        if self.DEBUG:
+            result = get_rate_via_crypto(self._histoticks, self._params_cryptocomp)
+            self.data = to_dataFrame(result, True)
+            print(self.data["time"].values[-1])
+            self.update(None)
+        else:
+            raise ValueError("getOHLC: This method is used only in debug mode.")
+    
+    def analyze(self):
+        """analyze(self) -> None
+        analyze OHLC dataset
+        """
+        st = time.time()
+        self.initAnalysisData()
+        print("start analysis...")
+        for ii in range(1, self._N_benefit):
+            results = analyze(self.data, ii, ii + 1, self._N_dec)
 
+            # extract benefit
+            benefits = results["benefits"]
+            a_k = results["a_k"]
+            dead_ = -benefits[a_k[:, 1] == -1].sum()
+            golden_ = benefits[a_k[:, 1] == 1].sum()
+            self._benefit_map[ii, ii + 1] = dead_ + golden_
+
+            # extract 
+            self._stat_dead_list.append(results["stat_dead"])
+            self._stat_golden_list.append(results["stat_golden"])
+            self._ext_dead_list.append(results["list_ext_dead"])
+            self._ext_golden_list.append(results["list_ext_golden"])
+        print("finish analysis.")
+        print("Elapsed time: {0:.2f} sec.".format(time.time() - st))
+    
+    def updateAnalysisResults(self):
+        """updateAnalysisResults(self) -> None
+        update drawings of results of analysis
+        """
+        self.img_benefit.setImage(self._benefit_map)
+        
+        N1 = self._N_ema1
+        
+        self.plot_box_dead.clear()
+        self.plot_box_dead.plot(
+            np.arange(2**self._N_dec), self._stat_dead_list[N1-1][:, 2],
+            clear=False, pen=pg.mkPen(self._color_stat, width=2)
+        )
+
+        self.plot_box_golden.clear()
+        self.plot_box_golden.plot(
+            np.arange(2**self._N_dec), self._stat_golden_list[N1-1][:, 2],
+            clear=False, pen=pg.mkPen(self._color_stat, width=2)
+        )
+    
     def setData(self, data):
         """setData(self, data) -> None
         set data
@@ -616,9 +749,9 @@ class ChartWindow(QDialog):
         self.data = data
         self._count = 0
 
-def main(debug):
+def main():
     app = QApplication([])
-    mw = ChartWindow(debug)
+    mw = ChartWindow(True)
 
     import glob
     file_list = glob.glob("../data/ohlcv/OHLCV*.csv")
@@ -634,13 +767,4 @@ def main(debug):
     app.exec_()
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="ChartWindow")
-    parser.add_argument('-debug', action='store', dest='debug', type=str, default="True")
-    argmnt = parser.parse_args()
-    if argmnt.debug == "True":
-        main(True)
-    elif argmnt.debug == "False":
-        main(False)
-    else:
-        raise ValueError("option 'debug' must be True or False.")
+    main()
