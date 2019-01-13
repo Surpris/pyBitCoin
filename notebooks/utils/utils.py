@@ -114,25 +114,36 @@ def symbolize(dataFrame, k):
     return dec
 
 def peakdet(v, delta, x=None):
-    """
-        Converted from MATLAB script at http://billauer.co.il/peakdet.html
-        Returns two np.arrays
-        function [maxtab, mintab]=peakdet(v, delta, x)
-        % PEAKDET Detect peaks in a vector
-        % [MAXTAB, MINTAB] = PEAKDET(V, DELTA) finds the local
-        % maxima and minima ("peaks") in the vector V.
-        % MAXTAB and MINTAB consists of two columns. Column 1
-        % contains indices in V, and column 2 the found values.
-        %
-        % With [MAXTAB, MINTAB] = PEAKDET(V, DELTA, X) the indices
-        % in MAXTAB and MINTAB are replaced with the corresponding
-        % X-values.
-        %
-        % A point is considered a maximum peak if it has the maximal
-        % value, and was preceded (to the left) by a value lower by
-        % DELTA.
-        % Eli Billauer, 3.4.05 (Explicitly not copyrighted).
-        % This function is released to the public domain; Any use is allowed.
+    """peakdet(v, delta, x=None) -> numpy.2darray, numpy.2darray
+    Converted from MATLAB script at http://billauer.co.il/peakdet.html
+    returns two arrays which include the local maxima and the local minima.
+    function [maxtab, mintab]=peakdet(v, delta, x)
+    % PEAKDET Detect peaks in a vector
+    % [MAXTAB, MINTAB] = PEAKDET(V, DELTA) finds the local
+    % maxima and minima ("peaks") in the vector V.
+    % MAXTAB and MINTAB consists of two columns. Column 1
+    % contains indices in V, and column 2 the found values.
+    %
+    % With [MAXTAB, MINTAB] = PEAKDET(V, DELTA, X) the indices
+    % in MAXTAB and MINTAB are replaced with the corresponding
+    % X-values.
+    %
+    % A point is considered a maximum peak if it has the maximal
+    % value, and was preceded (to the left) by a value lower by
+    % DELTA.
+    % Eli Billauer, 3.4.05 (Explicitly not copyrighted).
+    % This function is released to the public domain; Any use is allowed.
+    
+    Parameters
+    ----------
+    v     : array-like
+    delta : numeric
+    x     : array-like (default : None)
+    
+    Returns
+    -------
+    maxtab : numpy.2darray
+    mintab : numpy.2darray
     """
     maxtab = []
     mintab = []
