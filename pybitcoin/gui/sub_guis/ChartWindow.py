@@ -16,22 +16,22 @@ from PyQt5.QtWidgets import QMainWindow, QDialog, QGridLayout, QWidget, QLabel, 
 from PyQt5.QtWidgets import QApplication, QCheckBox
 from PyQt5.QtGui import QPainter, QPalette, QColor
 from PyQt5.QtGui import QIntValidator, QDoubleValidator
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import pyqtSlot
-# from PyQt5.QtChart import QChartView, QChart
+from PyQt5.QtCore import Qt, QThread, pyqtSlot
 import pyqtgraph as pg
 import sys
 sys.path.append("../")
 import time
 
-from utils import make_groupbox_and_grid, make_pushbutton, make_label, calc_EMA
-from utils import get_rate_via_crypto, to_dataFrame
-from utils import analyze
 try:
     from CustomGraphicsItem import CandlestickItem
 except ImportError:
     from .CustomGraphicsItem import CandlestickItem
 
+from utils import make_groupbox_and_grid, make_pushbutton, make_label, calc_EMA
+from utils import get_rate_via_crypto, to_dataFrame
+from utils import analyze
+
+from workers import AnalysisWorker
 
 class ChartWindow(QDialog):
     """ChartWindow class
@@ -45,6 +45,7 @@ class ChartWindow(QDialog):
         super().__init__(*args)
 
         self.initInnerParameters(debug)
+        self.initAnalysisThread()
         self.initGui()
     
     def initInnerParameters(self, debug):
@@ -67,11 +68,13 @@ class ChartWindow(QDialog):
         self._chk_box_bg_color = "#FFFFFF"
 
         # for settings
+        self._N_ema_min = 10
+        self._N_ema_max = 15
         self._btc_volime = 1.
         self._count = 0
-        self._N_ema1 = 5
-        self._N_ema2 = 20
-        self._delta = 1. # for judgement of extreme maxima / minima
+        self._N_ema1 = self._N_ema_min
+        self._N_ema2 = self._N_ema_min + 1
+        self._delta = 10. # for judgement of extreme maxima / minima
         self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
         self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
         self._N_benefit = 5
@@ -87,9 +90,9 @@ class ChartWindow(QDialog):
         self._color_stat = "#2FC4DF"
 
         # for CryptoCompare
-        self._histoticks = "minute"
-        self._limit = int(4*60 - 1)
-        self.setCryptoCompareParam()
+        # self._histoticks = "minute"
+        # self._limit = int(4*60 - 1)
+        # self.setCryptoCompareParam()
         
         # for inner data
         self.initInnerData()
@@ -99,15 +102,15 @@ class ChartWindow(QDialog):
         self.DEBUG = debug
         self.data = None
     
-    def setCryptoCompareParam(self):
-        """setCryptoCompareParam(self) -> None
-        """
-        self._params_cryptocomp = {
-            "fsym": "BTC",
-            "tsym": "JPY",
-            "limit": str(self._limit),
-            "e": "bitFlyerfx",
-        }
+    # def setCryptoCompareParam(self):
+    #     """setCryptoCompareParam(self) -> None
+    #     """
+    #     self._params_cryptocomp = {
+    #         "fsym": "BTC",
+    #         "tsym": "JPY",
+    #         "limit": str(self._limit),
+    #         "e": "bitFlyerfx",
+    #     }
     
     def initInnerData(self):
         """initInnerData(self) -> None
@@ -144,11 +147,13 @@ class ChartWindow(QDialog):
         """initAnalysisData(self) -> None
         initialize the inner data related to analysis
         """
-        self._benefit_map = np.zeros((self._N_benefit + 1, self._N_benefit + 1), dtype=int)
-        self._stat_dead_list = []
-        self._stat_golden_list = []
-        self._ext_dead_list = []
-        self._ext_golden_list = []
+        self._benefit_map = np.zeros((self._N_ema_max + 1, self._N_ema_max + 1), dtype=int)
+        self._results_list = []
+        # self._cross_points_list = []
+        # self._stat_dead_list = []
+        # self._stat_golden_list = []
+        # self._ext_dead_list = []
+        # self._ext_golden_list = []
 
     def updateAlpha(self):
         """updateAlpha(self) -> None
@@ -156,6 +161,22 @@ class ChartWindow(QDialog):
         """
         self._alpha1 = 2./(self._N_ema1 + 1.)
         self._alpha2 = 2./(self._N_ema2 + 1.)
+    
+    def initAnalysisThread(self):
+        self._thread_analysis = QThread()
+        self._worker_analysis = AnalysisWorker(
+            N_ema_max=self._N_ema_max, N_ema_min=self._N_ema_min, 
+            N_dec=self._N_dec
+        )
+        self._worker_analysis.do_something.connect(self.updateAnalysisResults)
+        self._worker_analysis.moveToThread(self._thread_analysis)
+
+        # start
+        self._thread_analysis.started.connect(self._worker_analysis.process)
+
+        # finished
+        self._worker_analysis.finished.connect(self._thread_analysis.quit)
+        # self._thread_analysis.finished.connect(self.checkIsTimerStopped)
     
     def initGui(self):
         """initGui(self) -> None
@@ -367,7 +388,7 @@ class ChartWindow(QDialog):
 
             self.button4 = make_pushbutton(
                 self, 40, 16, "View", 14, 
-                method=self.updateAnalysisResults, color=None, isBold=False
+                method=self.drawAnalysisResults, color=None, isBold=False
             )
 
             ## add
@@ -467,7 +488,7 @@ class ChartWindow(QDialog):
         """
         if not self.DEBUG:
             raise ValueError("This method must be used in a debug mode.")
-        self.initInnerData()
+        self.initOHLCVData()
         if self._N_ema1 != int(self.le_ema1.text()) or self._N_ema2 != int(self.le_ema2.text()):
             self.setEmaSpan()
         if self._delta != float(self.le_delta.text()):
@@ -678,6 +699,7 @@ class ChartWindow(QDialog):
             np.arange(1, len(self._timestamp) + 1), self._extreme_signal,
             clear=False, pen=pg.mkPen(self._color_extreme_signal, width=2)
         )
+
         self.chart_stock.clear()
         self.chart_stock.plot(
             np.arange(1, len(self._timestamp) + 1), self._jpy_list,
@@ -695,50 +717,111 @@ class ChartWindow(QDialog):
         else:
             raise ValueError("getOHLC: This method is used only in debug mode.")
     
+    @pyqtSlot()
     def analyze(self):
         """analyze(self) -> None
         analyze OHLC dataset
         """
-        st = time.time()
-        self.initAnalysisData()
-        print("start analysis...")
-        for ii in range(1, self._N_benefit):
-            results = analyze(self.data, ii, ii + 1, self._N_dec)
-
-            # extract benefit
-            benefits = results["benefits"]
-            a_k = results["a_k"]
-            dead_ = -benefits[a_k[:, 1] == -1].sum()
-            golden_ = benefits[a_k[:, 1] == 1].sum()
-            self._benefit_map[ii, ii + 1] = dead_ + golden_
-
-            # extract 
-            self._stat_dead_list.append(results["stat_dead"])
-            self._stat_golden_list.append(results["stat_golden"])
-            self._ext_dead_list.append(results["list_ext_dead"])
-            self._ext_golden_list.append(results["list_ext_golden"])
-        print("finish analysis.")
-        print("Elapsed time: {0:.2f} sec.".format(time.time() - st))
+        if not self._thread_analysis.isRunning():
+            if self.DEBUG:
+                print("start thread.")
+            self._worker_analysis.dataset = self.data.copy()
+            self._worker_analysis.delta = self._delta
+            self._thread_analysis.start()
+        else:
+            if self.DEBUG:
+                print("Thread is running.")
     
-    def updateAnalysisResults(self):
-        """updateAnalysisResults(self) -> None
-        update drawings of results of analysis
+    def updateAnalysisResults(self, data):
+        """updateAnalysisResults(self, data) -> None
+        update the results of analysis
+
+        Parameters
+        ----------
+        data : dict
+            'data' has the following key-value pairs.
+            benefit_map     : numpy.2darray
+            results_list    : list of dict object
+            # stat_dead       : list of numpy.2darray
+            # stat_golden     : list of numpy.2darray
+            # ext_dead_list   : list of list with numpy.2darray
+            # ext_golden_list : list of list with numpy.2darray
+        """
+        try:
+            self._benefit_map = data["benefit_map"]
+            self._results_list = data["results_list"]
+            # self._cross_points_list = data["cross_points_list"]
+            # self._stat_dead_list = data["stat_dead_list"]
+            # self._stat_golden_list = data["stat_golden_list"]
+            # self._ext_dead_list = data["ext_dead_list"]
+            # self._ext_golden_list = data["ext_golden_list"]
+            self.drawAnalysisResults()
+        except Exception as ex:
+            print(ex)
+
+    @pyqtSlot()
+    def drawAnalysisResults(self):
+        """drawAnalysisResults(self) -> None
+        draw the results of analysis
         """
         self.img_benefit.setImage(self._benefit_map)
-        
-        N1 = self._N_ema1
-        
+
+        ii = self._N_ema1 - self._N_ema_min
+        if ii < 0:
+            print("N1 must be >= {0}.".format(self._N_ema_min))
+            return
+        results = self._results_list[ii]
+
         self.plot_box_dead.clear()
         self.plot_box_dead.plot(
-            np.arange(2**self._N_dec), self._stat_dead_list[N1-1][:, 2],
+            np.arange(2**self._N_dec), results["stat_dead"][:, 2],
             clear=False, pen=pg.mkPen(self._color_stat, width=2)
         )
 
         self.plot_box_golden.clear()
         self.plot_box_golden.plot(
-            np.arange(2**self._N_dec), self._stat_golden_list[N1-1][:, 2],
+            np.arange(2**self._N_dec), results["stat_golden"][:, 2],
             clear=False, pen=pg.mkPen(self._color_stat, width=2)
         )
+
+        if len(self._timestamp) == 0:
+            self.update(None)
+        else:
+            self.updatePlots()
+        
+        # self.chart_ohlc.plot(
+        #     np.arange(1, len(self._timestamp) + 1), results["ema1"][:len(self._timestamp)],
+        #     clear=False, pen=pg.mkPen("#3DD73F", width=2)
+        # )
+        # self.chart_ohlc.plot(
+        #     np.arange(1, len(self._timestamp) + 1), results["ema2"][:len(self._timestamp)],
+        #     clear=False, pen=pg.mkPen("#E745EC", width=2)
+        # )
+
+        self.chart_volume.clear()
+        self.chart_volume.plot(
+            np.arange(1, len(self._timestamp) + 1), np.array(self._ema1) - np.array(self._ema2),
+            clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
+        )
+
+        self.chart_stock.clear()
+        self.chart_stock.plot(
+            np.arange(1, len(self._timestamp) + 1), results["cross_points"][:len(self._timestamp)],
+            clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
+        )
+        position_ext = results["position_ext"]
+        a_k = results["a_k"]
+        position_plot = np.zeros(len(self._timestamp))
+        count = 0
+        for ii in range(len(self._timestamp)):
+            if ii == position_ext[count]:
+                position_plot[ii] = a_k[count][1]
+                count += 1
+        self.chart_stock.plot(
+            np.arange(1, len(self._timestamp) + 1), position_plot,
+            clear=False, pen=pg.mkPen(self._color_extreme_signal, width=2)
+        )
+        
     
     def setData(self, data):
         """setData(self, data) -> None

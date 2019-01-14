@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from .mathfunctions import calc_EMA, find_cross_points, peakdet, symbolize
 
-def analyze(df, N1, N2, N_dec=5, patterns_golden=None, patterns_dead=None):
-    """analyze(df, N1, N2, N_dec=5, patterns_golden=None, patterns_dead=None) -> dict
+def analyze(df, N1, N2, N_dec=5, delta=10., patterns_golden=None, patterns_dead=None):
+    """analyze(df, N1, N2, N_dec=5, delta=10., patterns_golden=None, patterns_dead=None) -> dict
     calculate some factors
     
     Parameters
@@ -14,6 +14,7 @@ def analyze(df, N1, N2, N_dec=5, patterns_golden=None, patterns_dead=None):
     N1              : int
     N2              : int
     N_dec           : int
+    delta           : float
     patterns_golden : array-like
     patterns_dead   : array-like
     
@@ -35,7 +36,7 @@ def analyze(df, N1, N2, N_dec=5, patterns_golden=None, patterns_dead=None):
     
     # find local maxima and minima of the difference, "EMA1 - EMA2"
     ema_diff = ema1 - ema2
-    maxtab_ema_diff, mintab_ema_diff = peakdet(ema_diff, 10)
+    maxtab_ema_diff, mintab_ema_diff = peakdet(ema_diff, delta)
     
     # symbolize
     dec = symbolize(df, N_dec)
@@ -45,6 +46,7 @@ def analyze(df, N1, N2, N_dec=5, patterns_golden=None, patterns_dead=None):
     t1_ext = np.zeros(len(a_k), int)
     tm_ext = np.zeros(len(a_k), int)
     distance_ext = np.zeros(len(a_k), int)
+    position_ext = np.zeros(len(a_k), int)
     
     for ii in range(len(a_k)-1):
         ind1, ind2 = a_k[ii][0], a_k[ii+1][0]
@@ -69,6 +71,7 @@ def analyze(df, N1, N2, N_dec=5, patterns_golden=None, patterns_dead=None):
                     tm = ind1
                 tm_ext[ii] = max(open_[tm+1], close_[tm+1])
                 distance_ext[ii] = tm - ind1 + 1
+                position_ext[ii] = tm + 1
                 dec_ext[ii] = dec[ind1]
         else: # golden cross
             if patterns_golden is None or dec[ind1] in patterns_golden:
@@ -87,6 +90,7 @@ def analyze(df, N1, N2, N_dec=5, patterns_golden=None, patterns_dead=None):
                     tm = ind1
                 tm_ext[ii] = min(open_[tm+1], close_[tm+1])
                 distance_ext[ii] = tm - ind1 + 1
+                position_ext[ii] = tm + 1
                 dec_ext[ii] = dec[ind1]
     
     # calculate benefits
@@ -122,8 +126,8 @@ def analyze(df, N1, N2, N_dec=5, patterns_golden=None, patterns_dead=None):
     
     results = dict(
         ema1=ema1, ema2=ema2, cross_points=cross_points, a_k=a_k,
-        dec_ext=dec_ext, distance_ext=distance_ext, benefits=benefits,
-        stat_dead=stat_dead, list_ext_dead=list_ext_dead,
+        dec_ext=dec_ext, distance_ext=distance_ext, position_ext=position_ext, 
+        benefits=benefits, stat_dead=stat_dead, list_ext_dead=list_ext_dead,
         stat_golden=stat_golden, list_ext_golden=list_ext_golden
     )
     return results
