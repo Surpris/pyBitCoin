@@ -36,7 +36,15 @@ def initAPI():
 
     try:
         endpoint = "/v1/markets"
-        currencies = api.request(endpoint)
+        is_success = False
+        while not is_success:
+            try:
+                currencies = api.request(endpoint)
+                is_success = True
+            except KeyboardInterrupt:
+                raise KeyboardInterrupt
+            except:
+                continue
         if isinstance(currencies, list):
             print("Currency:")
             print([currency["product_code"] for currency in currencies])
@@ -44,7 +52,15 @@ def initAPI():
             raise ValueError("No available currencies.")
 
         endpoint = "/v1/me/getpermissions"
-        permissions = api.request(endpoint)
+        is_success = False
+        while not is_success:
+            try:
+                permissions = api.request(endpoint)
+                is_success = True
+            except KeyboardInterrupt:
+                raise KeyboardInterrupt
+            except:
+                continue
         if isinstance(permissions, list):
             print("Permitted API:")
             print(permissions)
@@ -231,9 +247,11 @@ if __name__ == "__main__":
     # id_start = 718327164 # 2019/01/11
     # id_start = 721123808 #  2019/01/12
     # id_start = 723565551 # 2019/01/13
-    id_start = 725772983 # 2019/01/14
-    t_start = datetime(2019, 1, 14, 0, 1, 0)
-    t_end = datetime(2019, 1, 15, 0, 0, 0)
+    # id_start = 725772983 # 2019/01/14
+    # id_start = 728496507 # 2019/01/15
+    id_start = 731330070 # 2019/01/16
+    t_start = datetime(2019, 1, 16, 0, 1, 0)
+    t_end = datetime(2019, 1, 17, 0, 0, 0)
     st = time.time()
     ohlcv = get_ohlcv(t_start, t_end, api, id_start, verbose=False)
     t_last = datetime.fromtimestamp(ohlcv["time"].values[-1]) + timedelta(hours=9)

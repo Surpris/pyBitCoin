@@ -72,8 +72,8 @@ class ChartWindow(QDialog):
         self._N_ema_max = 15
         self._btc_volime = 1.
         self._count = 0
-        self._N_ema1 = self._N_ema_min
-        self._N_ema2 = self._N_ema_min + 1
+        self._N_ema1 = 20
+        self._N_ema2 = 21
         self._delta = 10. # for judgement of extreme maxima / minima
         self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
         self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
