@@ -30,6 +30,7 @@ except ImportError:
 from utils import make_groupbox_and_grid, make_pushbutton, make_label, calc_EMA
 from utils import get_rate_via_crypto, to_dataFrame
 from utils import analyze
+from utils import DataAdapter
 
 from workers import AnalysisWorker
 
@@ -79,6 +80,13 @@ class ChartWindow(QDialog):
         self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
         self._N_benefit = 5
         self._N_dec = 5
+
+        # set DataAdapter
+        self._adapter = DataAdapter(
+            N_ema_max=self._N_ema_max, N_ema_min=self._N_ema_min,
+            N_dec=self._N_dec, N_ema1=self._N_ema1, N_ema2=self._N_ema2,
+            delta=self._delta, 
+        )
 
         # for chart
         self._color_ema1 = "#3C8CE7"
@@ -372,7 +380,7 @@ class ChartWindow(QDialog):
             ## update button
             self.button1 = make_pushbutton(
                 self, 40, 16, "Update", 14, 
-                method=lambda data: self.update(data), color=None, isBold=False
+                method=self.update, color=None, isBold=False
             )
 
             ## button to get OHLCV data from CryptoCompare
@@ -410,299 +418,314 @@ class ChartWindow(QDialog):
         self.grid = QGridLayout(self)
         self.grid.setSpacing(5)
     
-    @pyqtSlot(object)
-    def update(self, data):
-        """update(self, data) -> None
-        update the inner data and graphs
-
-        Parameters
-        ----------
-        data : dict
-            data must contain the following key-value pairs:
-                timestamp : unix time (str)
-                ltp : latest trading price (int)
+    @pyqtSlot()
+    def update(self):
+        """update(self) -> None
+        update the inner adapter and graphs
         """
         try:
-            if not self.DEBUG:
-                self.updateInnerData(data)
-            else:
-                self.updateInnerDataDebug()
+            self.updateInnerAdapter()
             self.updatePlots()
         except Exception as ex:
             print(ex)
     
-    def updateInnerData(self, data):
-        """updateInnerData(self, data) -> None
-        update the inner data
-
-        Parameters
-        ----------
-        data : dict
-            data must contain the following key-value pairs:
-                timestamp : unix time (str)
-                ltp : latest trading price (int)
-        """
-        try:
-            timestamp_ = datetime.strptime(data["timestamp"], self._datetimeFmt_BITFLYER)
-        except ValueError:
-            timestamp_ = datetime.strptime(data["timestamp"], self._datetimeFmt_BITFLYER_2)
-        if self._latest is None:
-            self._latest = timestamp_
-            self._timestamp.append(0)
-        elif self._latest.minute < timestamp_.minute:
-            self._latest = timestamp_
-            self._timestamp.append(0)
-            self._cross_signal.pop()
-            self._cross_signal.append(self.judgeCrossPoint())
-            self._ohlc_list.pop()
-            self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
-
-            self._tmp_ohlc.clear()
-            self._tmp_ltp.clear()
-            self._extreme_signal.append(self.judgeExtremePoint())
-        else:
-            self._close.pop()
-            self._ema1.pop()
-            self._ema2.pop()
-            self._cross_signal.pop()
-            self._ohlc_list.pop()
+    def updateInnerAdapter(self):
+        need_update = False
+        if self._adapter.N_ema1 != int(self.le_ema1.text()) or self._N_ema2 != int(self.le_ema2.text()):
+            self._adapter.N_ema1 = int(self.le_ema1.text())
+            self._adapter.N_ema2 = int(self.le_ema2.text())
+            need_update = True
+        if self._adapter.delta != float(self.le_delta.text()):
+            self._adapter.delta = float(self.le_delta.text())
+            need_update = True
         
-        self._ltp.append(data["ltp"])
-        self._tmp_ltp.append(data["ltp"])
-        self._close.append(self._tmp_ltp[-1])
-        self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
-        self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
-        self._cross_signal.append(0)
-        self._tmp_ohlc = [
-            len(self._timestamp), 
-            self._tmp_ltp[0], 
-            max(self._tmp_ltp), 
-            min(self._tmp_ltp), 
-            self._tmp_ltp[-1]
-        ]
-        self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
-        self.updateExecutionState()
-    
-    def updateInnerDataDebug(self):
-        """updateInnerDataDebug(self) -> None
-        """
-        if not self.DEBUG:
-            raise ValueError("This method must be used in a debug mode.")
-        self.initOHLCVData()
-        if self._N_ema1 != int(self.le_ema1.text()) or self._N_ema2 != int(self.le_ema2.text()):
-            self.setEmaSpan()
-        if self._delta != float(self.le_delta.text()):
-            self._delta = float(self.le_delta.text())
+        if need_update:
+            self._adapter.initOHLCVData()
+            self.updateResults()
 
-        start_ = int(self.le_start.text())
-        if start_ >= len(self.data):
-            raise ValueError('start must be smaller than the length of data.')
-        end_ = min([int(self.le_end.text()), len(self.data)])
-        data_ = self.data[["open", "high", "low", "close"]].values[start_:end_]
-        volume_ = self.data["volume"].values[start_:end_]
-        for ii, row in enumerate(data_):
-            buff = np.zeros(5)
-            buff[0] = ii + 1
-            buff[1:] = row.copy()
-            self._timestamp.append(ii + 1)
-            self._close.append(row[-1])
-            self._volume_list.append(volume_[ii])
-            self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
-            self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
-            self._ohlc_list.append(buff.copy())
-            self._cross_signal.append(self.judgeCrossPoint())
-            self._extreme_signal.append(self.judgeExtremePoint())
-            self.updateExecutionStateDebug()
+    # def updateInnerData(self, data):
+    #     """updateInnerData(self, data) -> None
+    #     update the inner data
+
+    #     Parameters
+    #     ----------
+    #     data : dict
+    #         data must contain the following key-value pairs:
+    #             timestamp : unix time (str)
+    #             ltp : latest trading price (int)
+    #     """
+    #     try:
+    #         timestamp_ = datetime.strptime(data["timestamp"], self._datetimeFmt_BITFLYER)
+    #     except ValueError:
+    #         timestamp_ = datetime.strptime(data["timestamp"], self._datetimeFmt_BITFLYER_2)
+    #     if self._latest is None:
+    #         self._latest = timestamp_
+    #         self._timestamp.append(0)
+    #     elif self._latest.minute < timestamp_.minute:
+    #         self._latest = timestamp_
+    #         self._timestamp.append(0)
+    #         self._cross_signal.pop()
+    #         self._cross_signal.append(self.judgeCrossPoint())
+    #         self._ohlc_list.pop()
+    #         self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
+
+    #         self._tmp_ohlc.clear()
+    #         self._tmp_ltp.clear()
+    #         self._extreme_signal.append(self.judgeExtremePoint())
+    #     else:
+    #         self._close.pop()
+    #         self._ema1.pop()
+    #         self._ema2.pop()
+    #         self._cross_signal.pop()
+    #         self._ohlc_list.pop()
         
-        self.updateResults()
+    #     self._ltp.append(data["ltp"])
+    #     self._tmp_ltp.append(data["ltp"])
+    #     self._close.append(self._tmp_ltp[-1])
+    #     self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
+    #     self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
+    #     self._cross_signal.append(0)
+    #     self._tmp_ohlc = [
+    #         len(self._timestamp), 
+    #         self._tmp_ltp[0], 
+    #         max(self._tmp_ltp), 
+    #         min(self._tmp_ltp), 
+    #         self._tmp_ltp[-1]
+    #     ]
+    #     self._ohlc_list.append(copy.deepcopy(self._tmp_ohlc))
+    #     self.updateExecutionState()
     
-    def setEmaSpan(self):
-        """setEmaSpan(self) -> None
-        set EMA spans
-        """
-        self._N_ema1 = int(self.le_ema1.text())
-        self._N_ema2 = int(self.le_ema2.text())
-        self.updateAlpha()
-    
-    def calcEMA(self, ema_list, alpha):
-        """calcEMA(self, ema_list, alpha) -> float
-        calculate the EMA value for the latest close data
+    # def updateInnerDataDebug(self):
+    #     """updateInnerDataDebug(self) -> None
+    #     """
+    #     if not self.DEBUG:
+    #         raise ValueError("This method must be used in a debug mode.")
+    #     self.initOHLCVData()
+    #     if self._N_ema1 != int(self.le_ema1.text()) or self._N_ema2 != int(self.le_ema2.text()):
+    #         self.setEmaSpan()
+    #     if self._delta != float(self.le_delta.text()):
+    #         self._delta = float(self.le_delta.text())
 
-        Parameters
-        ----------
-        ema_list : array-like
-            list of historical EMA values
-        alpha : float
-            alpha parameter of EMA calculation
+    #     start_ = int(self.le_start.text())
+    #     if start_ >= len(self.data):
+    #         raise ValueError('start must be smaller than the length of data.')
+    #     end_ = min([int(self.le_end.text()), len(self.data)])
+    #     data_ = self.data[["open", "high", "low", "close"]].values[start_:end_]
+    #     volume_ = self.data["volume"].values[start_:end_]
+    #     for ii, row in enumerate(data_):
+    #         buff = np.zeros(5)
+    #         buff[0] = ii + 1
+    #         buff[1:] = row.copy()
+    #         self._timestamp.append(ii + 1)
+    #         self._close.append(row[-1])
+    #         self._volume_list.append(volume_[ii])
+    #         self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
+    #         self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
+    #         self._ohlc_list.append(buff.copy())
+    #         self._cross_signal.append(self.judgeCrossPoint())
+    #         self._extreme_signal.append(self.judgeExtremePoint())
+    #         self.updateExecutionStateDebug()
         
-        Returns
-        -------
-        current EMA value (float)
-        """
-        if len(ema_list) == 0:
-            return self._close[-1]
-        else:
-            return (1. - alpha) * ema_list[-1] + alpha * self._close[-1]
+    #     self.updateResults()
     
-    def judgeCrossPoint(self):
-        """judgeCrossPoint(self) -> float
-        judge whether one is on a cross point
-
-        Returns
-        -------
-        judgement value (float)
-            +1.0 : on a golden cross point
-             0.0 : not on any cross point
-            -1.0 : on a dead cross point
-        """
-        if len(self._ema1) == 0 or len(self._ema2) == 0:
-            raise ValueError("Some error occurs on the inner data.")
-        if len(self._ema1) == 1 or len(self._ema2) == 1:
-            return 0.
-        
-        ema1_before, ema1_current = self._ema1[-2], self._ema1[-1]
-        ema2_before, ema2_current = self._ema2[-2], self._ema2[-1]
-        if ema1_before >= ema2_before and ema1_current < ema2_current:
-            return -1.
-        elif ema1_before < ema2_before and ema1_current >= ema2_current:
-            return 1.
-        else:
-            return 0.
-        
-    def judgeExtremePoint(self):
-        """judgeExtremePoint(self) -> float
-        judge whether one is on an extreme point
-
-        Returns
-        -------
-        judgement value (float)
-            +1.0 : on an extreme maximum
-             0.0 : not on any extreme maximum or minumum
-            -1.0 : on an extreme minimum
-        """
-        if len(self._ema1) == 0 or len(self._ema2) == 0:
-            raise ValueError("Some error occurs on the inner data.")
-        if self._look_for_max is None:
-            return 0.
-        diff = self._ema1[-1] - self._ema2[-1]
-        self._current_max = max([diff, self._current_max])
-        self._current_min = min([diff, self._current_min])
-        if self._look_for_max and diff < self._current_max - self._delta:
-            self._look_for_max = False
-            self._current_min = diff
-            return 1.
-        elif (not self._look_for_max) and diff > self._current_min + self._delta:
-            self._look_for_max = True
-            self._current_max = diff
-            return -1.
-        else:
-            return 0.
+    # def setEmaSpan(self):
+    #     """setEmaSpan(self) -> None
+    #     set EMA spans
+    #     """
+    #     self._N_ema1 = int(self.le_ema1.text())
+    #     self._N_ema2 = int(self.le_ema2.text())
+    #     self.updateAlpha()
     
-    def updateExecutionState(self):
-        """updateExecutionState(self) -> None
-        update the state of execution
-        """
-        pass
+    # def calcEMA(self, ema_list, alpha):
+    #     """calcEMA(self, ema_list, alpha) -> float
+    #     calculate the EMA value for the latest close data
 
-    def updateExecutionStateDebug(self):
-        """updateExecutionStateDebug(self) -> None
-        update the state of execution in debug mode
-        """
-        if len(self._close) == 1:
-            self._jpy_list.append(0)
-            return
-        self._jpy_list.append(self._jpy_list[-1])
-        if self._current_state == "ask":
-            if self._stop_by_cross: # when the previous state is "buy"
-                if self.chk_use_average.isChecked():
-                    ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
-                else:
-                    ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-                self._jpy_list[-1] += - (ltp_ - self._order_ltp)
-            self._order_ltp = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])    
-            self._current_state = "sell"
-        elif self._current_state == "bid":
-            if self._stop_by_cross: # when the previous state is "sell"
-                if self.chk_use_average.isChecked():
-                    ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
-                else:
-                    ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-                self._jpy_list[-1] += ltp_ - self._order_ltp
-            self._order_ltp = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-            self._current_state = "buy"
-        elif self._current_state == "sell":
-            if self._extreme_signal[-2] == 1.:
-                if self.chk_use_average.isChecked():
-                    ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
-                else:
-                    ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-                self._jpy_list[-1] += ltp_ - self._order_ltp
-                self._order_ltp = 0
-                self._current_state = "wait"
-                self._look_for_max = None
-        elif self._current_state == "buy":
-            if self._extreme_signal[-2] == -1.:
-                if self.chk_use_average.isChecked():
-                    ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
-                else:
-                    ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-                self._jpy_list[-1] += - (ltp_ - self._order_ltp)
-                self._order_ltp = 0
-                self._current_state = "wait"
-                self._look_for_max = None
-        if self._cross_signal[-1] == 1.: # ask in the next step
-            if self._current_state == "buy":
-                self._stop_by_cross == True
-            self._look_for_max = True
-            self._current_state = "ask"
-        elif self._cross_signal[-1] == -1.: # bid in the next step
-            if self._current_state == "sell":
-                self._stop_by_cross == True
-            self._look_for_max = False
-            self._current_state = "bid"
+    #     Parameters
+    #     ----------
+    #     ema_list : array-like
+    #         list of historical EMA values
+    #     alpha : float
+    #         alpha parameter of EMA calculation
+        
+    #     Returns
+    #     -------
+    #     current EMA value (float)
+    #     """
+    #     if len(ema_list) == 0:
+    #         return self._close[-1]
+    #     else:
+    #         return (1. - alpha) * ema_list[-1] + alpha * self._close[-1]
+    
+    # def judgeCrossPoint(self):
+    #     """judgeCrossPoint(self) -> float
+    #     judge whether one is on a cross point
+
+    #     Returns
+    #     -------
+    #     judgement value (float)
+    #         +1.0 : on a golden cross point
+    #          0.0 : not on any cross point
+    #         -1.0 : on a dead cross point
+    #     """
+    #     if len(self._ema1) == 0 or len(self._ema2) == 0:
+    #         raise ValueError("Some error occurs on the inner data.")
+    #     if len(self._ema1) == 1 or len(self._ema2) == 1:
+    #         return 0.
+        
+    #     ema1_before, ema1_current = self._ema1[-2], self._ema1[-1]
+    #     ema2_before, ema2_current = self._ema2[-2], self._ema2[-1]
+    #     if ema1_before >= ema2_before and ema1_current < ema2_current:
+    #         return -1.
+    #     elif ema1_before < ema2_before and ema1_current >= ema2_current:
+    #         return 1.
+    #     else:
+    #         return 0.
+        
+    # def judgeExtremePoint(self):
+    #     """judgeExtremePoint(self) -> float
+    #     judge whether one is on an extreme point
+
+    #     Returns
+    #     -------
+    #     judgement value (float)
+    #         +1.0 : on an extreme maximum
+    #          0.0 : not on any extreme maximum or minumum
+    #         -1.0 : on an extreme minimum
+    #     """
+    #     if len(self._ema1) == 0 or len(self._ema2) == 0:
+    #         raise ValueError("Some error occurs on the inner data.")
+    #     if self._look_for_max is None:
+    #         return 0.
+    #     diff = self._ema1[-1] - self._ema2[-1]
+    #     self._current_max = max([diff, self._current_max])
+    #     self._current_min = min([diff, self._current_min])
+    #     if self._look_for_max and diff < self._current_max - self._delta:
+    #         self._look_for_max = False
+    #         self._current_min = diff
+    #         return 1.
+    #     elif (not self._look_for_max) and diff > self._current_min + self._delta:
+    #         self._look_for_max = True
+    #         self._current_max = diff
+    #         return -1.
+    #     else:
+    #         return 0.
+    
+    # def updateExecutionState(self):
+    #     """updateExecutionState(self) -> None
+    #     update the state of execution
+    #     """
+    #     pass
+
+    # def updateExecutionStateDebug(self):
+    #     """updateExecutionStateDebug(self) -> None
+    #     update the state of execution in debug mode
+    #     """
+    #     if len(self._close) == 1:
+    #         self._jpy_list.append(0)
+    #         return
+    #     self._jpy_list.append(self._jpy_list[-1])
+    #     if self._current_state == "ask":
+    #         if self._stop_by_cross: # when the previous state is "buy"
+    #             if self.chk_use_average.isChecked():
+    #                 ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
+    #             else:
+    #                 ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+    #             self._jpy_list[-1] += - (ltp_ - self._order_ltp)
+    #         self._order_ltp = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])    
+    #         self._current_state = "sell"
+    #     elif self._current_state == "bid":
+    #         if self._stop_by_cross: # when the previous state is "sell"
+    #             if self.chk_use_average.isChecked():
+    #                 ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
+    #             else:
+    #                 ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+    #             self._jpy_list[-1] += ltp_ - self._order_ltp
+    #         self._order_ltp = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+    #         self._current_state = "buy"
+    #     elif self._current_state == "sell":
+    #         if self._extreme_signal[-2] == 1.:
+    #             if self.chk_use_average.isChecked():
+    #                 ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
+    #             else:
+    #                 ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+    #             self._jpy_list[-1] += ltp_ - self._order_ltp
+    #             self._order_ltp = 0
+    #             self._current_state = "wait"
+    #             self._look_for_max = None
+    #     elif self._current_state == "buy":
+    #         if self._extreme_signal[-2] == -1.:
+    #             if self.chk_use_average.isChecked():
+    #                 ltp_ = (self._ohlc_list[-1][2] +  self._ohlc_list[-1][3]) // 2
+    #             else:
+    #                 ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
+    #             self._jpy_list[-1] += - (ltp_ - self._order_ltp)
+    #             self._order_ltp = 0
+    #             self._current_state = "wait"
+    #             self._look_for_max = None
+    #     if self._cross_signal[-1] == 1.: # ask in the next step
+    #         if self._current_state == "buy":
+    #             self._stop_by_cross == True
+    #         self._look_for_max = True
+    #         self._current_state = "ask"
+    #     elif self._cross_signal[-1] == -1.: # bid in the next step
+    #         if self._current_state == "sell":
+    #             self._stop_by_cross == True
+    #         self._look_for_max = False
+    #         self._current_state = "bid"
     
     def updateResults(self):
         """updateResults(self) -> None
         update the results of trades
         """
-        self.label_benefit_value.setText(str(self._jpy_list[-1]))
-        days = len(self._jpy_list) / 1440.
+        self.label_benefit_value.setText(str(self._adapter.jpy_list[-1]))
+        days = len(self._adapter.jpy_list) / 1440.
         self.label_perday_value.setText("{0:.2f}".format(float(self._jpy_list[-1]) / days))
     
     def updatePlots(self):
         """updatePlots(self) -> None
         update Grpahs
         """
+        start_ = int(self.le_start.text())
+        if start_ >= len(self._adapter.data):
+            raise ValueError('start must be smaller than the length of data.')
+        end_ = min([int(self.le_end.text()), len(self._adapter.data)])
+
         self.chart_ohlc.clear()
-        self.chart_ohlc.addItem(CandlestickItem(self._ohlc_list))
+        self.chart_ohlc.addItem(CandlestickItem(self._adapter.ohlc_list[start_:end_]))
         self.chart_ohlc.plot(
-            np.arange(1, len(self._timestamp) + 1), self._ema1, 
+            np.arange(1, len(self._adapter.timestamp[start_:end_]) + 1), 
+            self._adapter.ema1[start_:end_], 
             clear=False, pen=pg.mkPen(self._color_ema1, width=2)
         )
         self.chart_ohlc.plot(
-            np.arange(1, len(self._timestamp) + 1), self._ema2,
+            np.arange(1, len(self._adapter.timestamp[start_:end_]) + 1), 
+            self._adapter.ema2[start_:end_], 
             clear=False, pen=pg.mkPen(self._color_ema2, width=2)
         )
         
         self.chart_volume.clear()
         self.chart_volume.plot(
-            np.arange(1, len(self._timestamp) + 1), self._volume_list,
+            np.arange(1, len(self._adapter.timestamp[start_:end_]) + 1), 
+            self._adapter.volume_list[start_:end_],
             clear=False, pen=pg.mkPen("#FFFFFF", width=2)
         )
 
         self.chart_signal.clear()
         self.chart_signal.plot(
-            np.arange(1, len(self._timestamp) + 1), self._cross_signal,
+            np.arange(1, len(self._adapter.timestamp[start_:end_]) + 1), 
+            self._adapter.cross_signal[start_:end_],
             clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
         )
         self.chart_signal.plot(
-            np.arange(1, len(self._timestamp) + 1), self._extreme_signal,
+            np.arange(1, len(self._adapter.timestamp[start_:end_]) + 1), 
+            self._adapter.extreme_signal[start_:end_],
             clear=False, pen=pg.mkPen(self._color_extreme_signal, width=2)
         )
 
         self.chart_stock.clear()
         self.chart_stock.plot(
-            np.arange(1, len(self._timestamp) + 1), self._jpy_list,
+            np.arange(1, len(self._adapter.timestamp[start_:end_]) + 1), 
+            self._adapter.jpy_list[start_:end_],
             clear=False, pen=pg.mkPen(self._color_stock, width=2)
         )
     
@@ -713,7 +736,7 @@ class ChartWindow(QDialog):
             result = get_rate_via_crypto(self._histoticks, self._params_cryptocomp)
             self.data = to_dataFrame(result, True)
             print(self.data["time"].values[-1])
-            self.update(None)
+            self.update()
         else:
             raise ValueError("getOHLC: This method is used only in debug mode.")
     
@@ -829,6 +852,7 @@ class ChartWindow(QDialog):
         """
         if not self.DEBUG:
             raise ValueError("This method is valid only in debug mode.")
+        self._adapter.data = data
         self.data = data
         self._count = 0
 

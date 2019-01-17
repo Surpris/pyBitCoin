@@ -5,6 +5,7 @@ import datetime
 import numpy as np
 import pandas as pd
 # import pybitflyer
+from .footprint import footprint
 
 class DataAdapter(object):
     """DataAdapter(object)
@@ -43,18 +44,19 @@ class DataAdapter(object):
         # for OHLCV
         self.N_ema_min = N_ema_min
         self.N_ema_max = N_ema2
-        self.N_ema1 = N_ema1
-        self.N_ema2 = N_ema2
+        self._N_ema1 = N_ema1
+        self._N_ema2 = N_ema2
         self.delta = delta # for judgement of extreme maxima / minima
         self.N_dec = N_dec
 
         # initialize inner dat
-        self._initOHLCVData()
-        self._initAnalysisData()
+        self.initOHLCVData()
+        self.initAnalysisData()
         self._updateAlpha()
     
-    def _initOHLCVData(self):
-        """_initInnerData(self) -> None
+    @footprint
+    def initOHLCVData(self):
+        """initInnerData(self) -> None
         initialize the inner data for OHLCV
         """
         self._timestamp = []
@@ -218,8 +220,8 @@ class DataAdapter(object):
             self._look_for_max = False
             self._current_state = "bid"
     
-    def _initAnalysisData(self):
-        """_initAnalysisData(self) -> None
+    def initAnalysisData(self):
+        """initAnalysisData(self) -> None
         initialize the inner data for analysis
         """
         self._benefit_map = np.zeros((self.N_ema_max + 1, self.N_ema_max + 1), dtype=int)
@@ -235,8 +237,8 @@ class DataAdapter(object):
         """updateAlpha(self) -> None
         update the alpha parameters for calulation of EMA
         """
-        self._alpha1 = 2./(self.N_ema1 + 1.)
-        self._alpha2 = 2./(self.N_ema2 + 1.)
+        self._alpha1 = 2./(self._N_ema1 + 1.)
+        self._alpha2 = 2./(self._N_ema2 + 1.)
 
     @property
     def data(self):
@@ -245,7 +247,7 @@ class DataAdapter(object):
     @data.setter
     def data(self, df):
         self._data_frame = df
-        self._initOHLCVData()
+        self.initOHLCVData()
     
     @property
     def analysis_results(self):
@@ -254,8 +256,26 @@ class DataAdapter(object):
     @analysis_results.setter
     def analysis_results(self, data):
         self._analysis_results = data
-        self._initAnalysisData()
+        self.initAnalysisData()
     
+    @property
+    def N_ema1(self):
+        return self._N_ema1
+    
+    @N_ema1.setter
+    def N_ema1(self, N):
+        self._N_ema1 = N
+        self._alpha1 = 2./(self._N_ema1 + 1.)
+    
+    @property
+    def N_ema2(self):
+        return self._N_ema2
+    
+    @N_ema2.setter
+    def N_ema2(self, N):
+        self._N_ema2 = N
+        self._alpha2 = 2./(self._N_ema2 + 1.)
+
     @property
     def timestamp(self):
         return self._timestamp
