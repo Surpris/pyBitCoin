@@ -151,6 +151,7 @@ def get_ohlcv(ts, te, api, id_start=None, verbose=False):
     fmt = "%Y-%m-%dT%H:%M:%S.%f"
     fmt2 = "%Y-%m-%dT%H:%M:%S"
     product_code = "FX_BTC_JPY"
+    columns = ["time", "id_start", "id_end", "open", "high", "low", "close", "volume"]
     count = 500
     t_start = ts - timedelta(hours=9)
     t_end = te - timedelta(hours=9)
@@ -189,7 +190,7 @@ def get_ohlcv(ts, te, api, id_start=None, verbose=False):
                     results = api.executions(**params)[::-1]
                     is_success = True
                 except KeyboardInterrupt:
-                    return pd.DataFrame(ohlcv_list, columns=["time", "id_start", "open", "high", "low", "close", "volume"])
+                    return pd.DataFrame(ohlcv_list, columns=columns)
                 except:
                     fault_count += 1
                     continue
@@ -221,8 +222,9 @@ def get_ohlcv(ts, te, api, id_start=None, verbose=False):
                 id_next = 1*(ids_[ind_id&ind_now])[-1]
             else:
                 timestamp_ = t_start.timestamp()
-                ohlcv_list.append([timestamp_, id_start_, ltp_list[0], ltp_list.max(), ltp_list.min(), ltp_list[-1], volume_list.sum()])
-                id_start_ = 1*(ids_[ind_id&ind_next])[0]
+                id_end_ = 1*(ids_[ind_id&ind_next])[0] - 1
+                ohlcv_list.append([timestamp_, id_start_, id_end_, ltp_list[0], ltp_list.max(), ltp_list.min(), ltp_list[-1], volume_list.sum()])
+                id_start_ = id_end_ + 1
                 id_next = 1*(ids_[ind_id&ind_next])[-1]
                 ltp_list = np.empty(0, dtype=int)
                 ltp_list = np.hstack((ltp_list, ltps_[ind_id&ind_next]))
@@ -232,26 +234,22 @@ def get_ohlcv(ts, te, api, id_start=None, verbose=False):
                 t_next += timedelta(minutes=1)
                 print("next id:{}, datetime:{}".format(id_start_, t_start.strftime("%Y-%m-%dT%H:%M:%S")))
         except KeyboardInterrupt:
-            return pd.DataFrame(ohlcv_list, columns=["time", "id_start", "open", "high", "low", "close", "volume"])
+            return pd.DataFrame(ohlcv_list, columns=columns)
     if verbose:
             print("finish the main loop.")
-    return pd.DataFrame(ohlcv_list, columns=["time", "id_start", "open", "high", "low", "close", "volume"])
+    return pd.DataFrame(ohlcv_list, columns=columns)
 
 if __name__ == "__main__":
     api = initAPI()
-    # id_start = 694426164 # 2019/01/01
-    # id_start = 707791510 # 2019/01/07
-    # id_start = 710557268 # 2019/01/08
-    # id_start = 713238915 # 2019/01/09
-    # id_start = 715822823 # 2019/01/10
-    # id_start = 718327164 # 2019/01/11
-    # id_start = 721123808 #  2019/01/12
-    # id_start = 723565551 # 2019/01/13
-    # id_start = 725772983 # 2019/01/14
-    # id_start = 728496507 # 2019/01/15
-    id_start = 731330070 # 2019/01/16
-    t_start = datetime(2019, 1, 16, 0, 1, 0)
-    t_end = datetime(2019, 1, 17, 0, 0, 0)
+    file_latest = glob.glob("../data/ohlcv/OHLCV_*_to_*.csv")[-1]
+    data_latest = pd.read_csv(file_latest, index_col=0)
+    id_start = data_latest["id_end"].values[-1] + 1
+    t_start = datetime.fromtimestamp(data_latest["time"].values[-1]) + timedelta(hours=9, minutes=1)
+    t_end = datetime.fromtimestamp(data_latest["time"].values[-1]) + timedelta(days=1, hours=9)
+    print("start:", id_start, t_start, t_end)
+    # id_start = 739559340 # 2019/01/19
+    # t_start = datetime(2019, 1, 19, 0, 1, 0)
+    # t_end = datetime(2019, 1, 20, 0, 0, 0)
     st = time.time()
     ohlcv = get_ohlcv(t_start, t_end, api, id_start, verbose=False)
     t_last = datetime.fromtimestamp(ohlcv["time"].values[-1]) + timedelta(hours=9)
