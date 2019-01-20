@@ -4,6 +4,7 @@
 import datetime
 import numpy as np
 import pandas as pd
+import pickle
 # import pybitflyer
 from .footprint import footprint
 
@@ -49,35 +50,43 @@ class DataAdapter(object):
         self.delta = delta # for judgement of extreme maxima / minima
         self.N_dec = N_dec
 
-        # initialize inner dat
+        # initialize inner data
+        self._df_updated = True
+        self._ema_updated = True
+        self.updateAlpha()
         self.initOHLCVData()
+
+        self._ana_updated = True
         self.initAnalysisData()
-        self._updateAlpha()
     
     @footprint
     def initOHLCVData(self):
         """initInnerData(self) -> None
         initialize the inner data for OHLCV
         """
-        self._timestamp = []
         self._latest = None
         self._tmp_ltp = []
         self._tmp_ohlc = []
-        self._ltp = []
-        self._ohlc_list = []
-        self._volume_list = []
-        self._close = []
-        self._ema1 = []
-        self._ema2 = []
-        self._cross_signal = []
-        self._extreme_signal = []
-        self._current_max = np.Inf
-        self._current_min = -np.Inf
-        self._look_for_max = None
-        self._jpy_list = []
-        self._current_state = "wait"
-        self._order_ltp = 0
-        self._stop_by_cross = False
+        if self._df_updated:
+            self._ltp = []
+            self._timestamp = []
+            self._ohlc_list = []
+            self._volume_list = []
+            self._ema_updated = True
+        if self._ema_updated:
+            self._close = []
+            self._ema1 = []
+            self._ema2 = []
+            self._cross_signal = []
+            self._extreme_signal = []
+            self._current_max = np.Inf
+            self._current_min = -np.Inf
+            self._look_for_max = None
+            self._jpy_list = []
+            self._benefit_list = []
+            self._current_state = "wait"
+            self._order_ltp = 0
+            self._stop_by_cross = False
 
         if self._data_frame is not None:
             if isinstance(self._data_frame, pd.DataFrame):
@@ -87,18 +96,22 @@ class DataAdapter(object):
                     buff = np.zeros(5)
                     buff[0] = ii + 1
                     buff[1:] = row.copy()
-                    self._timestamp.append(ii + 1)
-                    self._close.append(row[-1])
-                    self._volume_list.append(volume_[ii])
-                    self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
-                    self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
-                    self._ohlc_list.append(buff.copy())
-                    self._cross_signal.append(self.judgeCrossPoint())
-                    self._extreme_signal.append(self.judgeExtremePoint())
-                    self.updateExecutionState()
+                    if self._df_updated:
+                        self._timestamp.append(ii + 1)
+                        self._volume_list.append(volume_[ii])
+                        self._ohlc_list.append(buff.copy())
+                    if self._ema_updated:
+                        self._close.append(row[-1])
+                        self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
+                        self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
+                        self._cross_signal.append(self.judgeCrossPoint())
+                        self._extreme_signal.append(self.judgeExtremePoint())
+                        self.updateExecutionState()
                 pass
             else:
                 raise TypeError('df must be a pandas.DataFrame object.')
+        self._df_updated = False
+        self._ema_updated = False
     
     def calcEMA(self, ema_list, alpha):
         """calcEMA(self, ema_list, alpha) -> float
@@ -181,12 +194,15 @@ class DataAdapter(object):
         """
         if len(self._close) == 1:
             self._jpy_list.append(0)
+            self._benefit_list.append(0)
             return
         self._jpy_list.append(self._jpy_list[-1])
+        self._benefit_list.append(0)
         if self._current_state == "ask":
             if self._stop_by_cross: # when the previous state is "buy"
                 ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
                 self._jpy_list[-1] += - (ltp_ - self._order_ltp)
+                self._benefit_list
             self._order_ltp = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])    
             self._current_state = "sell"
         elif self._current_state == "bid":
@@ -224,22 +240,52 @@ class DataAdapter(object):
         """initAnalysisData(self) -> None
         initialize the inner data for analysis
         """
+        self._dec = None
+        # self._
         self._benefit_map = np.zeros((self.N_ema_max + 1, self.N_ema_max + 1), dtype=int)
         self._results_list = []
+        # if self._analysis_results is None:
+        #     if self._data_frame
         if self._analysis_results is not None:
             if isinstance(self._analysis_results, dict):
                 self._benefit_map = self._analysis_results.get("benefit_map", self._benefit_map)
                 self._results_list = self._analysis_results.get("results_list", [])
             else:
                 raise TypeError('analysis_results must be a dict object.')
+        self._ana_updated = False
     
-    def _updateAlpha(self):
+    def updateAlpha(self):
         """updateAlpha(self) -> None
         update the alpha parameters for calulation of EMA
         """
         self._alpha1 = 2./(self._N_ema1 + 1.)
         self._alpha2 = 2./(self._N_ema2 + 1.)
+    
+    def save(self, fpath):
+        """save(self, fpath) -> None
+        save this instance
 
+        Parameters
+        ----------
+        fpath : str
+            file path to save
+        """
+        with open(fpath, "wb") as ff:
+            pickle.dump(self, ff)
+        
+    def load(fpath):
+        """load(fpath) -> self
+        load one instance of this class from fpath
+
+        Parameters
+        ----------
+        fpath : str
+            file path to load
+        """
+        with open(fpath, "rb") as ff:
+            obj = pickle.load(ff)
+        return obj
+    
     @property
     def data(self):
         return self._data_frame
@@ -247,6 +293,7 @@ class DataAdapter(object):
     @data.setter
     def data(self, df):
         self._data_frame = df
+        self._df_updated = True
         self.initOHLCVData()
     
     @property
@@ -256,6 +303,7 @@ class DataAdapter(object):
     @analysis_results.setter
     def analysis_results(self, data):
         self._analysis_results = data
+        self._ana_updated = True
         self.initAnalysisData()
     
     @property
@@ -266,6 +314,7 @@ class DataAdapter(object):
     def N_ema1(self, N):
         self._N_ema1 = N
         self._alpha1 = 2./(self._N_ema1 + 1.)
+        self._ema_updated = True
     
     @property
     def N_ema2(self):
@@ -275,6 +324,7 @@ class DataAdapter(object):
     def N_ema2(self, N):
         self._N_ema2 = N
         self._alpha2 = 2./(self._N_ema2 + 1.)
+        self._ema_updated = True
 
     @property
     def timestamp(self):
