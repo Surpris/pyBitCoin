@@ -1,12 +1,15 @@
 #! /usr/bin/python3
 # -*- coding: utf-8 -*-
 
+import copy
 import datetime
 import numpy as np
 import pandas as pd
 import pickle
+# import sys
 # import pybitflyer
 from .footprint import footprint
+from .mathfunctions import symbolize
 
 class DataAdapter(object):
     """DataAdapter(object)
@@ -44,18 +47,19 @@ class DataAdapter(object):
 
         # for OHLCV
         self.N_ema_min = N_ema_min
-        self.N_ema_max = N_ema2
+        self.N_ema_max = N_ema_max
         self._N_ema1 = N_ema1
         self._N_ema2 = N_ema2
         self.delta = delta # for judgement of extreme maxima / minima
         self.N_dec = N_dec
 
         # initialize inner data
-        self._df_updated = True
+        self._df_initialized = True
         self._ema_updated = True
         self.updateAlpha()
         self.initOHLCVData()
 
+        self._ana_initialized = True
         self._ana_updated = True
         self.initAnalysisData()
     
@@ -64,14 +68,22 @@ class DataAdapter(object):
         """initInnerData(self) -> None
         initialize the inner data for OHLCV
         """
+        if not hasattr(self, "_tmp_target"):
+            self._tmp_target = [
+                "N_ema1", "N_ema2", "ltp", "timestamp", "ohlc_list", "volume_list", "close", 
+                "ema1", "ema2", "cross_signal", "extreme_signal", 
+                "current_max", "current_min", "look_for_max", "jpy_list", "benefit_list", 
+                "current_state", "order_ltp", "stop_by_cross", 
+            ]
         self._latest = None
         self._tmp_ltp = []
         self._tmp_ohlc = []
-        if self._df_updated:
+        if self._df_initialized:
             self._ltp = []
             self._timestamp = []
             self._ohlc_list = []
             self._volume_list = []
+            self._dec = None
             self._ema_updated = True
         if self._ema_updated:
             self._close = []
@@ -96,7 +108,7 @@ class DataAdapter(object):
                     buff = np.zeros(5)
                     buff[0] = ii + 1
                     buff[1:] = row.copy()
-                    if self._df_updated:
+                    if self._df_initialized:
                         self._timestamp.append(ii + 1)
                         self._volume_list.append(volume_[ii])
                         self._ohlc_list.append(buff.copy())
@@ -107,10 +119,11 @@ class DataAdapter(object):
                         self._cross_signal.append(self.judgeCrossPoint())
                         self._extreme_signal.append(self.judgeExtremePoint())
                         self.updateExecutionState()
-                pass
+                if self._df_initialized:
+                    self._dec = symbolize(self._data_frame, self.N_dec)
             else:
                 raise TypeError('df must be a pandas.DataFrame object.')
-        self._df_updated = False
+        self._df_initialized = False
         self._ema_updated = False
     
     def calcEMA(self, ema_list, alpha):
@@ -201,27 +214,30 @@ class DataAdapter(object):
         if self._current_state == "ask":
             if self._stop_by_cross: # when the previous state is "buy"
                 ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-                self._jpy_list[-1] += - (ltp_ - self._order_ltp)
-                self._benefit_list
+                self._jpy_list[-1] -= ltp_ - self._order_ltp
+                self._benefit_list[-1] -= ltp_ - self._order_ltp
             self._order_ltp = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])    
             self._current_state = "sell"
         elif self._current_state == "bid":
             if self._stop_by_cross: # when the previous state is "sell"
                 ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
                 self._jpy_list[-1] += ltp_ - self._order_ltp
+                self._benefit_list[-1] += ltp_ - self._order_ltp
             self._order_ltp = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
             self._current_state = "buy"
         elif self._current_state == "sell":
             if self._extreme_signal[-2] == 1.:
                 ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
                 self._jpy_list[-1] += ltp_ - self._order_ltp
+                self._benefit_list[-1] += ltp_ - self._order_ltp
                 self._order_ltp = 0
                 self._current_state = "wait"
                 self._look_for_max = None
         elif self._current_state == "buy":
             if self._extreme_signal[-2] == -1.:
                 ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-                self._jpy_list[-1] += - (ltp_ - self._order_ltp)
+                self._jpy_list[-1] -= ltp_ - self._order_ltp
+                self._benefit_list[-1] -= ltp_ - self._order_ltp
                 self._order_ltp = 0
                 self._current_state = "wait"
                 self._look_for_max = None
@@ -240,19 +256,28 @@ class DataAdapter(object):
         """initAnalysisData(self) -> None
         initialize the inner data for analysis
         """
-        self._dec = None
-        # self._
-        self._benefit_map = np.zeros((self.N_ema_max + 1, self.N_ema_max + 1), dtype=int)
-        self._results_list = []
-        # if self._analysis_results is None:
-        #     if self._data_frame
-        if self._analysis_results is not None:
-            if isinstance(self._analysis_results, dict):
-                self._benefit_map = self._analysis_results.get("benefit_map", self._benefit_map)
-                self._results_list = self._analysis_results.get("results_list", [])
-            else:
-                raise TypeError('analysis_results must be a dict object.')
-        self._ana_updated = False
+        if self._ana_initialized or self._ana_updated:
+            self._benefit_map = np.zeros((self.N_ema_max + 1, self.N_ema_max + 1), dtype=int)
+            self._results_list = []
+            # if self._ana_initialized and self._analysis_results is not None:
+            #     if isinstance(self._analysis_results, dict):
+            #         self._benefit_map = self._analysis_results.get("benefit_map", self._benefit_map)
+            #         self._results_list = self._analysis_results.get("results_list", [])
+            #     else:
+            #         raise TypeError('analysis_results must be a dict object.')
+            if self._ana_updated:
+                for s in self._tmp_target:
+                    exec("tmp_{0} = copy.deepcopy(self._{0})".format(s))
+                for ii in range(self.N_ema_min, self.N_ema_max):
+                    self._N_ema1 = ii
+                    self._N_ema2 = ii + 1
+                    self.updateAlpha()
+                    # self.initOHLCVData()
+                for s in self._tmp_target:
+                    exec("self._{0} = copy.deepcopy(tmp_{0})".format(s))
+                self.updateAlpha()
+            self._ana_initialized = False
+            self._ana_updated = False
     
     def updateAlpha(self):
         """updateAlpha(self) -> None
@@ -293,7 +318,7 @@ class DataAdapter(object):
     @data.setter
     def data(self, df):
         self._data_frame = df
-        self._df_updated = True
+        self._df_initialized = True
         self.initOHLCVData()
     
     @property
@@ -303,7 +328,7 @@ class DataAdapter(object):
     @analysis_results.setter
     def analysis_results(self, data):
         self._analysis_results = data
-        self._ana_updated = True
+        self._ana_initialized = True
         self.initAnalysisData()
     
     @property
