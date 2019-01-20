@@ -252,13 +252,18 @@ class DataAdapter(object):
             self._look_for_max = False
             self._current_state = "bid"
     
+    @footprint
     def initAnalysisData(self):
         """initAnalysisData(self) -> None
         initialize the inner data for analysis
         """
         if self._ana_initialized or self._ana_updated:
             self._benefit_map = np.zeros((self.N_ema_max + 1, self.N_ema_max + 1), dtype=int)
-            self._results_list = []
+            # self._results_list = []
+            self._stat_dead_list = []
+            self._stat_golden_list = []
+            self._dec_dead_list = []
+            self._dec_golden_list = []
             # if self._ana_initialized and self._analysis_results is not None:
             #     if isinstance(self._analysis_results, dict):
             #         self._benefit_map = self._analysis_results.get("benefit_map", self._benefit_map)
@@ -266,13 +271,74 @@ class DataAdapter(object):
             #     else:
             #         raise TypeError('analysis_results must be a dict object.')
             if self._ana_updated:
+                # reserve the current dataset temporaly
                 for s in self._tmp_target:
                     exec("tmp_{0} = copy.deepcopy(self._{0})".format(s))
+                
+                # calculate statistics and benefits for each pair (N_ema1, N_ema2)
                 for ii in range(self.N_ema_min, self.N_ema_max):
+                    # calculate a dataset of signals
                     self._N_ema1 = ii
                     self._N_ema2 = ii + 1
                     self.updateAlpha()
-                    # self.initOHLCVData()
+                    self.initOHLCVData()
+                    self._benefit_map[ii, ii + 1] = 1*self._jpy_list[-1]
+
+                    # extract patterns
+                    dec_dead = [np.empty(0)] * 2**self.N_dec
+                    dec_golden = [np.empty(0)] * 2**self.N_dec
+                    for jj in range(len(self._cross_signal)):
+                        print(jj)
+                        if self._cross_signal[jj] == 1: # golden case
+                            buff = self._benefit_list[jj:]
+                            buff2 = np.array(self._extreme_signal[jj:], dtype=float)
+                            v = buff[np.where(buff2 == 1.)[0][0] + 1]
+                            dec_golden[self._dec[jj]] = \
+                                np.append(dec_golden[self._dec[jj]], v)
+                        elif self._cross_signal[jj] == -1: # dead case
+                            buff = self._benefit_list[jj:]
+                            buff2 = np.array(self._extreme_signal[jj:], dtype=float)
+                            v = buff[np.where(buff2 == -1.)[0][0] + 1]
+                            dec_dead[self._dec[jj]] = \
+                                np.append(dec_dead[self._dec[jj]], v)
+                    
+                    # calculate statistics
+                    stat_dead = np.zeros((2**self.N_dec, 5), dtype=float)
+                    stat_golden = np.zeros((2**self.N_dec, 5), dtype=float)
+                    for jj in range(2**self.N_dec):
+                        # golden case
+                        arr = dec_golden[jj]
+                        if len(arr) != 0:
+                            ind = np.abs(arr) <=100000
+                            dec_golden[ii] = arr[ind]
+                            stat_golden[ii] = np.array([
+                                arr[ind].max(), 
+                                arr[ind].min(), 
+                                arr[ind].mean(), 
+                                arr[ind].std(), 
+                                np.median(arr[ind])
+                            ])
+                        # dead case
+                        arr = dec_dead[ii]
+                        if len(arr) != 0:
+                            ind = np.abs(arr) <=100000
+                            dec_dead[ii] = arr[ind]
+                            stat_dead[ii] = np.array([
+                                arr[ind].max(), 
+                                arr[ind].min(), 
+                                arr[ind].mean(), 
+                                arr[ind].std(), 
+                                np.median(arr[ind])
+                            ])
+                        
+                    # append
+                    self._dec_golden_list.append(dec_golden)
+                    self._dec_dead_list.append(dec_dead)
+                    self._stat_golden_list.append(stat_golden)
+                    self._stat_dead_list.append(stat_dead)
+                    break
+                
+                # set the preserved dataset to the inner parameters
                 for s in self._tmp_target:
                     exec("self._{0} = copy.deepcopy(tmp_{0})".format(s))
                 self.updateAlpha()
@@ -286,6 +352,7 @@ class DataAdapter(object):
         self._alpha1 = 2./(self._N_ema1 + 1.)
         self._alpha2 = 2./(self._N_ema2 + 1.)
     
+    @footprint
     def save(self, fpath):
         """save(self, fpath) -> None
         save this instance

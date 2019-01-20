@@ -39,17 +39,17 @@ class ChartWindow(QDialog):
     This class offers an window to draw candlesticks on.
     """
 
-    def __init__(self, debug=False, *args):
+    def __init__(self, df=None, debug=False, *args):
         """__init__(self, *args) -> None
         initialize this class
         """
         super().__init__(*args)
 
-        self.initInnerParameters(debug)
+        self.initInnerParameters(df, debug)
         self.initAnalysisThread()
         self.initGui()
     
-    def initInnerParameters(self, debug):
+    def initInnerParameters(self, df, debug):
         """initInnerParameters(self, debug) -> None
         initialize the inner parameters
 
@@ -82,7 +82,7 @@ class ChartWindow(QDialog):
         self._N_dec = 5
 
         # set DataAdapter
-        self._adapter = DataAdapter(
+        self._adapter = DataAdapter(df=df, 
             N_ema_max=self._N_ema_max, N_ema_min=self._N_ema_min,
             N_dec=self._N_dec, N_ema1=self._N_ema1, N_ema2=self._N_ema2,
             delta=self._delta, 
@@ -107,7 +107,7 @@ class ChartWindow(QDialog):
 
         # for DEBUG
         self.DEBUG = debug
-        self.data = None
+        self.data = df
     
     # def setCryptoCompareParam(self):
     #     """setCryptoCompareParam(self) -> None
@@ -609,9 +609,6 @@ class ChartWindow(QDialog):
         self._count = 0
 
 def main():
-    app = QApplication([])
-    mw = ChartWindow(True)
-
     import glob
     file_list = glob.glob("../data/ohlcv/OHLCV*.csv")
     data = None
@@ -621,7 +618,9 @@ def main():
             data = pd.read_csv(fpath, index_col=0)
         else:
             data = pd.concat((data, pd.read_csv(fpath, index_col=0)))
-    mw.setData(data)
+    app = QApplication([])
+    mw = ChartWindow(data, True)
+    # mw.setData(data)
     mw.show()
     app.exec_()
 
