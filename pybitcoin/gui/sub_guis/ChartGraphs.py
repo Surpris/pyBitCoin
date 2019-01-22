@@ -9,11 +9,9 @@ This file offers the following items:
 """
 
 import numpy as np
-from PyQt5.QtWidgets import QMainWindow, QDialog, QGridLayout, QWidget, QLabel, QLineEdit
-from PyQt5.QtWidgets import QApplication, QCheckBox
-from PyQt5.QtGui import QPainter, QPalette, QColor
-from PyQt5.QtGui import QIntValidator, QDoubleValidator
-from PyQt5.QtCore import Qt, QThread, pyqtSlot
+from PyQt5.QtWidgets import QGridLayout, QWidget, QLabel
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import Qt, pyqtSlot
 import pyqtgraph as pg
 
 import sys
@@ -28,7 +26,7 @@ except ImportError:
 from utils import make_groupbox_and_grid, make_pushbutton, make_label
 from utils import footprint
 
-class ChartGraphs(QDialog):
+class ChartGraphs(QWidget):
     """ChartGraphs class
     This class offers an window to plot the results of analysis of OHLCV datasets.
     """

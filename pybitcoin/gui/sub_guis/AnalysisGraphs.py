@@ -72,16 +72,10 @@ class AnalysisGraphs(QWidget):
         grid_coor_value = QGridLayout(widget_coor_value)
         grid_coor_value.setSpacing(10)
 
-        label_coor_value = make_label(
-            self, "Coor, Value:", self._font_size_label, isBold=True, alignment=Qt.AlignRight
-        )
-
         self.label_coor_value = make_label(
             self, "(NA, NA, 0.00e-00)", self._font_size_label, isBold=True, alignment=Qt.AlignRight
         )
-
-        grid_coor_value.addWidget(label_coor_value, 0, 0)
-        grid_coor_value.addWidget(self.label_coor_value, 0, 1)
+        grid_coor_value.addWidget(self.label_coor_value, 0, 0)
 
         # graphs
         self.glw = pg.GraphicsLayoutWidget()
@@ -91,7 +85,6 @@ class AnalysisGraphs(QWidget):
             # axisItems={"bottom":self.iw_axBottom, "left":self.iw_axLeft}
         )
         self.plot_benefit.setAspectLocked(True)
-        # self.plot_benefit.setMaximumWidth(100)
         self.img_benefit = pg.ImageItem()
         self.plot_benefit.addItem(self.img_benefit)
 
@@ -114,12 +107,10 @@ class AnalysisGraphs(QWidget):
         ## Box plot diagram for dead cross
         self.glw.nextRow()
         self.plot_box_dead = self.glw.addPlot()
-        # self.plot_box_dead.setMaximumWidth(100)
 
         ## Box plot diagram for golden cross
         self.glw.nextRow()
         self.plot_box_golden = self.glw.addPlot()
-        # self.plot_box_golden.setMaximumWidth(100)
 
         # construct
         grid.addWidget(widget_coor_value, 0, 0, 1, 1)

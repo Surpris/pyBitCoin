@@ -24,8 +24,12 @@ import time
 
 try:
     from CustomGraphicsItem import CandlestickItem
+    from AnalysisGraphs import AnalysisGraphs
+    from ChartGraphs import ChartGraphs
 except ImportError:
     from .CustomGraphicsItem import CandlestickItem
+    from .AnalysisGraphs import AnalysisGraphs
+    from .ChartGraphs import ChartGraphs
 
 from utils import make_groupbox_and_grid, make_pushbutton, make_label
 from utils import DataAdapter
@@ -57,7 +61,7 @@ class ChartWindow(QDialog):
         """
 
         # for GUI
-        self._window_width = 720 # [pixel]
+        self._window_width = 900 # [pixel]
         self._window_height = 720 # [pixel]
         self._spacing = 5 # [pixel]
         self._groupbox_title_font_size = 14
@@ -80,11 +84,11 @@ class ChartWindow(QDialog):
         self._N_dec = 5
 
         # set DataAdapter
-        self._adapter = DataAdapter(df=df, 
-            N_ema_max=self._N_ema_max, N_ema_min=self._N_ema_min,
-            N_dec=self._N_dec, N_ema1=self._N_ema1, N_ema2=self._N_ema2,
-            delta=self._delta, 
-        )
+        # self._adapter = DataAdapter(df=df, 
+        #     N_ema_max=self._N_ema_max, N_ema_min=self._N_ema_min,
+        #     N_dec=self._N_dec, N_ema1=self._N_ema1, N_ema2=self._N_ema2,
+        #     delta=self._delta, 
+        # )
 
         # for chart
         self._color_ema1 = "#3C8CE7"
@@ -174,65 +178,72 @@ class ChartWindow(QDialog):
         else:
             self.setWindowTitle("CandleStick")
         
-        # plots and charts
-        self.glw = pg.GraphicsLayoutWidget()
+        # analysis graphs
+        self.analysis_graphs = AnalysisGraphs()
+        self.analysis_graphs.setMaximumWidth(self._window_width // 3)
 
-        ## benefit map
-        self.plot_benefit = self.glw.addPlot(
-            # axisItems={"bottom":self.iw_axBottom, "left":self.iw_axLeft}
-        )
-        self.plot_benefit.setAspectLocked(True)
-        # self.plot_benefit.setMaximumWidth(100)
-        self.img_benefit = pg.ImageItem()
-        self.plot_benefit.addItem(self.img_benefit)
-
-        # self.label_coor_value = make_label(
-        #     group_analysis, "(NA,NA)", self._label_font_size, True, Qt.AlignLeft
-        # )
-
-        def mouseMoved(pos):
-            try:
-                coor = self.img_benefit.mapFromScene(pos)
-                x, y = int(coor.x()), int(coor.y())
-                if self.img_benefit.image is not None:
-                    img = self.img_benefit.image
-                    if 0 <= x <= img.shape[1] and 0 <= y <= img.shape[0]:
-                        pass
-                        # self.label_coor_value.setText("({0}, {1}, {2:.2e})".format(x, y, img[y, x]))
-            except Exception as ex:
-                print(ex)
+        # chart graphs
+        self.chart_graphs = ChartGraphs()
         
-        self.img_benefit.scene().sigMouseMoved.connect(mouseMoved)
+        # # plots and charts
+        # self.glw = pg.GraphicsLayoutWidget()
 
-        ## OHLC chart
-        self.chart_ohlc = self.glw.addPlot()
+        # ## benefit map
+        # self.plot_benefit = self.glw.addPlot(
+        #     # axisItems={"bottom":self.iw_axBottom, "left":self.iw_axLeft}
+        # )
+        # self.plot_benefit.setAspectLocked(True)
+        # # self.plot_benefit.setMaximumWidth(100)
+        # self.img_benefit = pg.ImageItem()
+        # self.plot_benefit.addItem(self.img_benefit)
 
-        self.glw.nextRow()
+        # # self.label_coor_value = make_label(
+        # #     group_analysis, "(NA,NA)", self._label_font_size, True, Qt.AlignLeft
+        # # )
 
-        ## Box plot diagram for dead cross
-        self.plot_box_dead = self.glw.addPlot()
-        # self.plot_box_dead.setMaximumWidth(100)
+        # def mouseMoved(pos):
+        #     try:
+        #         coor = self.img_benefit.mapFromScene(pos)
+        #         x, y = int(coor.x()), int(coor.y())
+        #         if self.img_benefit.image is not None:
+        #             img = self.img_benefit.image
+        #             if 0 <= x <= img.shape[1] and 0 <= y <= img.shape[0]:
+        #                 pass
+        #                 # self.label_coor_value.setText("({0}, {1}, {2:.2e})".format(x, y, img[y, x]))
+        #     except Exception as ex:
+        #         print(ex)
+        
+        # self.img_benefit.scene().sigMouseMoved.connect(mouseMoved)
 
-        ## volume chart
-        self.chart_volume = self.glw.addPlot()
-        # self.chart_volume.setMaximumHeight(self._window_height // 6)
+        # ## OHLC chart
+        # self.chart_ohlc = self.glw.addPlot()
 
-        self.glw.nextRow()
+        # self.glw.nextRow()
 
-        ## Box plot diagram for golden cross
-        self.plot_box_golden = self.glw.addPlot()
-        # self.plot_box_golden.setMaximumWidth(100)
+        # ## Box plot diagram for dead cross
+        # self.plot_box_dead = self.glw.addPlot()
+        # # self.plot_box_dead.setMaximumWidth(100)
 
-        ## signal chart
-        self.chart_signal = self.glw.addPlot()
-        # self.chart_signal.setMaximumHeight(self._window_height // 6)
+        # ## volume chart
+        # self.chart_volume = self.glw.addPlot()
+        # # self.chart_volume.setMaximumHeight(self._window_height // 6)
 
-        self.glw.nextRow()
-        _ = self.glw.addPlot()
+        # self.glw.nextRow()
 
-        ## stock chart
-        self.chart_stock = self.glw.addPlot()
-        # self.chart_stock.setMaximumHeight(self._window_height // 6)
+        # ## Box plot diagram for golden cross
+        # self.plot_box_golden = self.glw.addPlot()
+        # # self.plot_box_golden.setMaximumWidth(100)
+
+        # ## signal chart
+        # self.chart_signal = self.glw.addPlot()
+        # # self.chart_signal.setMaximumHeight(self._window_height // 6)
+
+        # self.glw.nextRow()
+        # _ = self.glw.addPlot()
+
+        # ## stock chart
+        # self.chart_stock = self.glw.addPlot()
+        # # self.chart_stock.setMaximumHeight(self._window_height // 6)
 
         # Settings
         group_setting, grid_setting = make_groupbox_and_grid(
@@ -313,12 +324,14 @@ class ChartWindow(QDialog):
         grid_results.addWidget(label_perday, 2, 0)
         grid_results.addWidget(self.label_perday_value, 3, 0)
 
-        self.grid.addWidget(self.glw, 0, 0, 3, 5)
-        self.grid.addWidget(group_setting, 0, 5, 1, 1)
-        self.grid.addWidget(group_results, 1, 5, 1, 1)
-
         # Items in debug mode
-        if self.DEBUG:
+        if not self.DEBUG:
+            self.grid.addWidget(self.analysis_graphs, 0, 0, 2, 2)
+            self.grid.addWidget(self.chart_graphs, 0, 2, 2, 3)
+            # self.grid.addWidget(self.glw, 0, 0, 3, 5)
+            self.grid.addWidget(group_setting, 0, 5, 1, 1)
+            self.grid.addWidget(group_results, 1, 5, 1, 1)
+        else:
             group_debug, grid_debug = make_groupbox_and_grid(
                 self, 60, self._window_height // 3,
                 "DEBUG", self._groupbox_title_font_size, self._spacing
@@ -376,6 +389,11 @@ class ChartWindow(QDialog):
             grid_debug.addWidget(self.button3, 4, 0)
             grid_debug.addWidget(self.button4, 5, 0)
 
+            self.grid.addWidget(self.analysis_graphs, 0, 0, 3, 2)
+            self.grid.addWidget(self.chart_graphs, 0, 2, 3, 3)
+            # self.grid.addWidget(self.glw, 0, 0, 3, 5)
+            self.grid.addWidget(group_setting, 0, 5, 1, 1)
+            self.grid.addWidget(group_results, 1, 5, 1, 1)
             self.grid.addWidget(group_debug, 2, 5, 1, 1)
     
     def initMainGrid(self):
