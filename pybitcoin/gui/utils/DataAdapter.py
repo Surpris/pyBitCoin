@@ -80,14 +80,13 @@ class DataAdapter(object):
         self._latest = None
         self._tmp_ltp = []
         self._tmp_ohlc = []
-        if self._df_initialized:
+        if self._df_initialized or self._ema_updated:
             self._ltp = []
             self._timestamp = []
             self._ohlc_list = []
             self._volume_list = []
             self._dec = None
             self._ema_updated = True
-        if self._ema_updated:
             self._close = []
             self._ema1 = []
             self._ema2 = []
@@ -110,11 +109,10 @@ class DataAdapter(object):
                     buff = np.zeros(5)
                     buff[0] = ii + 1
                     buff[1:] = row.copy()
-                    if self._df_initialized:
+                    if self._df_initialized or self._ema_updated:
                         self._timestamp.append(ii + 1)
                         self._volume_list.append(volume_[ii])
                         self._ohlc_list.append(buff.copy())
-                    if self._ema_updated:
                         self._close.append(row[-1])
                         self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
                         self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
