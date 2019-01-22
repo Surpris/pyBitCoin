@@ -62,7 +62,7 @@ class DataAdapter(object):
 
         self._ana_initialized = True
         self._ana_updated = True
-        # self.initAnalysisData()
+        self.initAnalysisData()
     
     @footprint
     def initOHLCVData(self):
@@ -123,6 +123,7 @@ class DataAdapter(object):
                     self._dec = symbolize(self._data_frame, self.N_dec)
             else:
                 raise TypeError('df must be a pandas.DataFrame object.')
+        self._benefit_list = np.array(self._benefit_list)
         self._df_initialized = False
         self._ema_updated = False
     
@@ -294,17 +295,26 @@ class DataAdapter(object):
                     dec_dead = [np.empty(0)] * 2**self.N_dec
                     dec_golden = [np.empty(0)] * 2**self.N_dec
                     for jj in range(len(self._cross_signal)):
-                        print(jj)
                         if self._cross_signal[jj] == 1: # golden case
                             buff = self._benefit_list[jj:]
-                            buff2 = np.array(self._extreme_signal[jj:], dtype=float)
-                            v = buff[np.where(buff2 == 1.)[0][0] + 1]
+                            # buff2 = np.array(self._extreme_signal[jj:], dtype=float)
+                            # v = buff[np.where(buff2 == 1.)[0][0] + 1]
+                            ind = buff != 0
+                            if ind.sum() != 0:
+                                v = buff[buff != 0][0]
+                            else:
+                                v = 0
                             dec_golden[self._dec[jj]] = \
                                 np.append(dec_golden[self._dec[jj]], v)
                         elif self._cross_signal[jj] == -1: # dead case
                             buff = self._benefit_list[jj:]
-                            buff2 = np.array(self._extreme_signal[jj:], dtype=float)
-                            v = buff[np.where(buff2 == -1.)[0][0] + 1]
+                            # buff2 = np.array(self._extreme_signal[jj:], dtype=float)
+                            # v = buff[np.where(buff2 == -1.)[0][0] + 1]
+                            ind = buff != 0
+                            if ind.sum() != 0:
+                                v = buff[buff != 0][0]
+                            else:
+                                v = 0
                             dec_dead[self._dec[jj]] = \
                                 np.append(dec_dead[self._dec[jj]], v)
                     

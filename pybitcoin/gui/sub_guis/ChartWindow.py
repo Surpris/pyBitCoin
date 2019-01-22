@@ -298,7 +298,7 @@ class ChartWindow(QDialog):
 
             self.button3 = make_pushbutton(
                 self, 40, 16, "Analyze", 14, 
-                method=self.analyze, color=None, isBold=False
+                method=None, color=None, isBold=False
             )
 
             self.button4 = make_pushbutton(
@@ -394,34 +394,6 @@ class ChartWindow(QDialog):
         else:
             if self.DEBUG:
                 print("Thread is running.")
-    
-    # def updateAnalysisResults(self, data):
-    #     """updateAnalysisResults(self, data) -> None
-    #     update the results of analysis
-
-    #     Parameters
-    #     ----------
-    #     data : dict
-    #         'data' has the following key-value pairs.
-    #         benefit_map     : numpy.2darray
-    #         results_list    : list of dict object
-    #         # stat_dead       : list of numpy.2darray
-    #         # stat_golden     : list of numpy.2darray
-    #         # ext_dead_list   : list of list with numpy.2darray
-    #         # ext_golden_list : list of list with numpy.2darray
-    #     """
-    #     try:
-    #         self._results_list = data["results_list"]
-    #         # self._cross_points_list = data["cross_points_list"]
-    #         # self._stat_dead_list = data["stat_dead_list"]
-    #         # self._stat_golden_list = data["stat_golden_list"]
-    #         # self._ext_dead_list = data["ext_dead_list"]
-    #         # self._ext_golden_list = data["ext_golden_list"]
-    #         self.drawAnalysisResults()
-    #     except Exception as ex:
-    #         exc_type, exc_obj, exc_tb = sys.exc_info()
-    #         # fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-    #         print("line {}:{}".format(exc_tb.tb_lineno, ex))
 
     @pyqtSlot()
     def drawAnalysisResults(self):
@@ -429,63 +401,8 @@ class ChartWindow(QDialog):
 
         draw the results of analysis
         """
-        self.img_benefit.setImage(self._benefit_map)
-
-        ii = self._N_ema1 - self._N_ema_min
-        if ii < 0:
-            print("N1 must be >= {0}.".format(self._N_ema_min))
-            return
-        results = self._results_list[ii]
-
-        self.plot_box_dead.clear()
-        self.plot_box_dead.plot(
-            np.arange(2**self._N_dec), results["stat_dead"][:, 2],
-            clear=False, pen=pg.mkPen(self._color_stat, width=2)
-        )
-
-        self.plot_box_golden.clear()
-        self.plot_box_golden.plot(
-            np.arange(2**self._N_dec), results["stat_golden"][:, 2],
-            clear=False, pen=pg.mkPen(self._color_stat, width=2)
-        )
-
-        # if len(self._timestamp) == 0:
-        #     self.update()
-        # else:
-        #     self.updatePlots()
-        
-        # self.chart_ohlc.plot(
-        #     np.arange(1, len(self._timestamp) + 1), results["ema1"][:len(self._timestamp)],
-        #     clear=False, pen=pg.mkPen("#3DD73F", width=2)
-        # )
-        # self.chart_ohlc.plot(
-        #     np.arange(1, len(self._timestamp) + 1), results["ema2"][:len(self._timestamp)],
-        #     clear=False, pen=pg.mkPen("#E745EC", width=2)
-        # )
-
-        self.chart_volume.clear()
-        self.chart_volume.plot(
-            np.arange(1, len(self._timestamp) + 1), np.array(self._ema1) - np.array(self._ema2),
-            clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
-        )
-
-        self.chart_stock.clear()
-        self.chart_stock.plot(
-            np.arange(1, len(self._timestamp) + 1), results["cross_points"][:len(self._timestamp)],
-            clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
-        )
-        position_ext = results["position_ext"]
-        a_k = results["a_k"]
-        position_plot = np.zeros(len(self._timestamp))
-        count = 0
-        for ii in range(len(self._timestamp)):
-            if ii == position_ext[count]:
-                position_plot[ii] = a_k[count][1]
-                count += 1
-        self.chart_stock.plot(
-            np.arange(1, len(self._timestamp) + 1), position_plot,
-            clear=False, pen=pg.mkPen(self._color_extreme_signal, width=2)
-        )
+        obj = self._adapter.dataset_for_analysis_graphs()
+        self.analysis_graphs.updateGraphs(obj)
 
 def main():
     import glob
