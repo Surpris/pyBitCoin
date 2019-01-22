@@ -4,8 +4,9 @@
 from PyQt5 import  QtCore, QtGui, QtWidgets
 
 def make_groupbox_and_grid(parent, width, height, title, fontsize, spacing):
-    """make_groupbox_and_grid(parent, width, height, title, fontsize, spacing) -> groupbox, grid
-
+    """make_groupbox_and_grid(parent, width, height, title, fontsize, spacing) -> QGroupBox, QGridLayout
+    create a QGroupBox and QGridLayout
+    
     Parameters
     ----------
     parent : parent class overtaking QtWidgets
@@ -32,7 +33,8 @@ def make_groupbox_and_grid(parent, width, height, title, fontsize, spacing):
     return groupbox, grid
 
 def make_label(parent, text, fontsize, isBold=False, alignment=None, color=None):
-    """make_label(parent, text, fontsize, isBold, alignment, color) -> QLable
+    """make_label(parent, text, fontsize, isBold, alignment, color) -> QLabel
+    create a QLabel instance
 
     Parameters
     ----------
@@ -65,6 +67,7 @@ def make_label(parent, text, fontsize, isBold=False, alignment=None, color=None)
 
 def make_pushbutton(parent, width, height, text, fontsize, method=None, color=None, isBold=False):
     """make_pushbutton(parent, width, height, text, fontsize, method, color, isBold) -> QtWidgets.QPushButton
+    create a QPushBUtton instance
 
     Parameters
     ----------

@@ -77,7 +77,7 @@ class AnalysisGraphs(QWidget):
         )
 
         self.label_coor_value = make_label(
-            self, "(NA, NA)", self._font_size_label, isBold=True, alignment=Qt.AlignRight
+            self, "(NA, NA, 0.00e-00)", self._font_size_label, isBold=True, alignment=Qt.AlignRight
         )
 
         grid_coor_value.addWidget(label_coor_value, 0, 0)
@@ -126,8 +126,8 @@ class AnalysisGraphs(QWidget):
         grid.addWidget(self.glw, 1, 0, 1, 9)
     
     @pyqtSlot(object)
-    def updateGraph(self, obj):
-        """updateGraph(self, obj) -> None
+    def updateGraphs(self, obj):
+        """updateGraphs(self, obj) -> None
         update graphs
 
         Parameters
@@ -185,7 +185,7 @@ class AnalysisGraphs(QWidget):
             "dec_dead_list":dec_dead_list, "dec_golden_list":dec_golden_list, 
             "stat_dead":stat_dead, "stat_golden":stat_golden
         }
-        self.updateGraph(obj)
+        self.updateGraphs(obj)
     
     @property
     def DEBUG(self):
