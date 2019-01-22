@@ -113,36 +113,37 @@ class ChartGraphs(QWidget):
                 jpy_list       : 1-dimensional array-like
         """
         try:
+            timestamp = obj["timestamp"]
             self.chart_ohlc.clear()
             self.chart_ohlc.addItem(CandlestickItem(obj["ohlc"]))
             self.chart_ohlc.plot(
-                np.arange(1, len(obj["timestamp"]) + 1), obj["ema1"], 
+                np.arange(timestamp[0], timestamp[-1] + 1), obj["ema1"], 
                 clear=False, pen=pg.mkPen(self._color_ema1, width=2)
             )
             self.chart_ohlc.plot(
-                np.arange(1, len(obj["timestamp"]) + 1), obj["ema2"], 
+                np.arange(timestamp[0], timestamp[-1] + 1), obj["ema2"], 
                 clear=False, pen=pg.mkPen(self._color_ema2, width=2)
             )
             
             self.chart_volume.clear()
             self.chart_volume.plot(
-                np.arange(1, len(obj["timestamp"]) + 1), obj["volume"], 
+                np.arange(timestamp[0], timestamp[-1] + 1), obj["volume"], 
                 clear=False, pen=pg.mkPen("#FFFFFF", width=2)
             )
 
             self.chart_signal.clear()
             self.chart_signal.plot(
-                np.arange(1, len(obj["timestamp"]) + 1), obj["cross_signal"], 
+                np.arange(timestamp[0], timestamp[-1] + 1), obj["cross_signal"], 
                 clear=False, pen=pg.mkPen(self._color_cross_signal, width=2)
             )
             self.chart_signal.plot(
-                np.arange(1, len(obj["timestamp"]) + 1), obj["extreme_signal"], 
+                np.arange(timestamp[0], timestamp[-1] + 1), obj["extreme_signal"], 
                 clear=False, pen=pg.mkPen(self._color_extreme_signal, width=2)
             )
 
             self.chart_stock.clear()
             self.chart_stock.plot(
-                np.arange(1, len(obj["timestamp"]) + 1), obj["jpy_list"], 
+                np.arange(timestamp[0], timestamp[-1] + 1), obj["jpy_list"], 
                 clear=False, pen=pg.mkPen(self._color_stock, width=2)
             )
         except Exception as ex:

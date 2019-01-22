@@ -21,6 +21,7 @@ class DataAdapter(object):
         """__init__(self, df=None, analysis_results=None, 
                     N_ema_min=10, N_ema_max=30, N_ema1=20, N_ema2=21, 
                     delta=10., N_dec=5) -> None
+        
         initialize this class
 
         Parameters
@@ -61,11 +62,12 @@ class DataAdapter(object):
 
         self._ana_initialized = True
         self._ana_updated = True
-        self.initAnalysisData()
+        # self.initAnalysisData()
     
     @footprint
     def initOHLCVData(self):
         """initInnerData(self) -> None
+
         initialize the inner data for OHLCV
         """
         if not hasattr(self, "_tmp_target"):
@@ -128,6 +130,7 @@ class DataAdapter(object):
     
     def calcEMA(self, ema_list, alpha):
         """calcEMA(self, ema_list, alpha) -> float
+
         calculate the EMA value for the latest close data
 
         Parameters
@@ -148,6 +151,7 @@ class DataAdapter(object):
     
     def judgeCrossPoint(self):
         """judgeCrossPoint(self) -> float
+
         judge whether one is on a cross point
 
         Returns
@@ -173,6 +177,7 @@ class DataAdapter(object):
         
     def judgeExtremePoint(self):
         """judgeExtremePoint(self) -> float
+
         judge whether one is on an extreme point
 
         Returns
@@ -202,7 +207,9 @@ class DataAdapter(object):
     
     def updateExecutionState(self):
         """updateExecutionState(self) -> None
+
         update the state of execution
+
         #TODO: modify this method
         """
         if len(self._close) == 1:
@@ -255,6 +262,7 @@ class DataAdapter(object):
     @footprint
     def initAnalysisData(self):
         """initAnalysisData(self) -> None
+
         initialize the inner data for analysis
         """
         if self._ana_initialized or self._ana_updated:
@@ -347,6 +355,7 @@ class DataAdapter(object):
     
     def updateAlpha(self):
         """updateAlpha(self) -> None
+
         update the alpha parameters for calulation of EMA
         """
         self._alpha1 = 2./(self._N_ema1 + 1.)
@@ -355,6 +364,7 @@ class DataAdapter(object):
     @footprint
     def save(self, fpath):
         """save(self, fpath) -> None
+
         save this instance
 
         Parameters
@@ -465,3 +475,81 @@ class DataAdapter(object):
     @property
     def order_ltp(self):
         return self._order_ltp
+    
+    def dataset_for_chart_graphs(self, start=0, end=None):
+        """dataset_for_chart_graphs(self) -> dict   
+        return a dataset for plotting in ChartGraphs class.
+
+        Parameters
+        ----------
+        start : int
+            start index to return
+        end   : int
+            end index to return
+        
+        Returns
+        -------
+        obj : dict
+            obj has the following key-value pairs:
+            timestamp      : 1-dimensional array-like
+                timestamp
+            ohlc           : 2-dimensional array-like
+                ohlc
+            volume         : 1-dimensional array-like
+                volume
+            ema1           : 1-dimensional array-like
+                1st EMA curve
+            ema2           : 1-dimensional array-like
+                2nd EMA curve
+            cross_signal   : 1-dimensional array-like
+                cross points of 1st & 2nd EMAs
+            extreme_signal : 1-dimensional array-like
+                signal for extreme points of difference btwn. 1st & 2nd EMAs
+            jpy_list       : 1-dimensional array-like
+                revolution of stock
+        """
+
+        if end is None:
+            end = len(self._timestamp)
+        obj = {
+            "timestamp":self._timestamp[start:end], 
+            "ohlc":self._ohlc_list[start:end], 
+            "volume":self._volume_list[start:end], 
+            "ema1":self._ema1[start:end], 
+            "ema2":self._ema2[start:end], 
+            "cross_signal":self._cross_signal[start:end], 
+            "extreme_signal":self._extreme_signal[start:end], 
+            "jpy_list":self._jpy_list[start:end]
+        }
+        return obj
+    
+    def dataset_for_analysis_graphs(self):
+        """dataset_for_analysis_graphs(self) -> dict   
+        return a dataset for plotting in AnalysisGraphs class.
+
+        Returns
+        -------
+        obj : dict
+            obj has the following key-value pairs:   
+            benefit_map     : numpy.2darray
+                map of benefit
+            N_dec           : int
+                the exponent of the decimal for OHLC patterns
+            stat_dead       : numpy.2darray with the shape of (2**N_dec, 5)
+                statistics of the benefit in dead-cross orders
+            stat_golden     : numpy.2darray with the shape of (2**N_dec, 5)
+                statistics of the benefit in golden-cross orders
+            dec_dead_list   : list of numpy.1darrays with the length of 2**N_dec
+                list of the benefits in dead-cross orders
+            dec_golden_list : list of numpy.1darrays with the length of 2**N_dec
+                list of the benefits in golden-cross orders
+        """
+        obj = {
+            "N_dec":self.N_dec, 
+            "benefit_map":self._benefit_map, 
+            "dec_dead_list":self._dec_dead_list, 
+            "dec_golden_list":self._dec_golden_list, 
+            "stat_dead":self._stat_dead_list, 
+            "stat_golden":self._stat_golden_list
+        }
+        return obj
