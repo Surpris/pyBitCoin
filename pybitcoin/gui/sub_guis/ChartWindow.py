@@ -27,9 +27,7 @@ try:
 except ImportError:
     from .CustomGraphicsItem import CandlestickItem
 
-from utils import make_groupbox_and_grid, make_pushbutton, make_label, calc_EMA
-from utils import get_rate_via_crypto, to_dataFrame
-from utils import analyze
+from utils import make_groupbox_and_grid, make_pushbutton, make_label
 from utils import DataAdapter
 
 from workers import AnalysisWorker
@@ -96,11 +94,6 @@ class ChartWindow(QDialog):
         self._color_stock = "#FFFFFF"
 
         self._color_stat = "#2FC4DF"
-
-        # for CryptoCompare
-        # self._histoticks = "minute"
-        # self._limit = int(4*60 - 1)
-        # self.setCryptoCompareParam()
         
         # for inner data
         self.initInnerData()
@@ -108,16 +101,6 @@ class ChartWindow(QDialog):
         # for DEBUG
         self.DEBUG = debug
         self.data = df
-    
-    # def setCryptoCompareParam(self):
-    #     """setCryptoCompareParam(self) -> None
-    #     """
-    #     self._params_cryptocomp = {
-    #         "fsym": "BTC",
-    #         "tsym": "JPY",
-    #         "limit": str(self._limit),
-    #         "e": "bitFlyerfx",
-    #     }
     
     def initInnerData(self):
         """initInnerData(self) -> None
@@ -374,12 +357,6 @@ class ChartWindow(QDialog):
                 self, 40, 16, "Update", 14, 
                 method=self.update, color=None, isBold=False
             )
-
-            ## button to get OHLCV data from CryptoCompare
-            # self.button2 = make_pushbutton(
-            #     self, 40, 16, "Get OHLC", 14, 
-            #     method=self.getOHLC, color=None, isBold=False
-            # )
 
             self.button3 = make_pushbutton(
                 self, 40, 16, "Analyze", 14, 
