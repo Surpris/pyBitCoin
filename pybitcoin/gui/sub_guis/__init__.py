@@ -4,4 +4,4 @@
 from .AnalysisGraphs import AnalysisGraphs
 from .ChartGraphs import ChartGraphs
 from .ChartWindow import ChartWindow
-from .CustomGraphicsItem import CandlestickItem
+from .CustomGraphicsItem import BoxPlotItem, CandlestickItem

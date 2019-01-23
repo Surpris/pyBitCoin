@@ -141,3 +141,45 @@ def peakdet(v, delta, x=None):
                 lookformax = True
 
     return np.array(maxtab), np.array(mintab)
+
+def dataset_for_boxplot(arr, k=0):
+    """dataset_for_boxplot(arr, k=0) -> tuple
+    
+    return a tuple having the folloing elements:
+        timestamp      : int
+            timestamp
+        outliers       : array-like
+            outliers
+        lower whisker  : float
+            lower whisker
+        first quartile : float
+            first quartile
+        median         : float
+            median
+        third quartile : float
+            third quartile 
+        upper whisker  : float
+            upper whisker
+
+    Parameters
+    ----------
+    arr : array-like
+        list of values
+    k   : numeric
+        equivalent to timestamp
+    
+    Returns
+    -------
+    a tuple having the above format
+    """
+    if not isinstance(arr, np.ndarray):
+        arr = np.array(arr)
+    q1 = np.percentile(arr, 25)
+    q2 = np.median(arr)
+    q3 = np.percentile(arr, 75)
+    IQR = q3 - q1
+    ind = (arr >= q1 - 1.5 * IQR) & (arr <= q3 + 1.5 * IQR)
+    outliers = arr[~ind]
+    lower_whisker = arr[ind].min()
+    upper_whisker = arr[ind].max()
+    return (k, outliers, lower_whisker, q1, q2, q3, upper_whisker)
