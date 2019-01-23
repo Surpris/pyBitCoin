@@ -38,41 +38,49 @@ class CandlestickItem(pg.GraphicsObject):
         generate items for candlesticks
         """
         self.picture = QtGui.QPicture()
-        p = QtGui.QPainter(self.picture)
-        p.setPen(pg.mkPen('w'))
+        self.p = QtGui.QPainter(self.picture)
+        self.p.setPen(pg.mkPen('w'))
         if len(self.data.shape) == 1:
-            w = 1./3.
-            t_, open_, high_, low_, close_ = self.data[:]
-            p.drawLine(QtCore.QPointF(t_, low_), QtCore.QPointF(t_, high_))
-            if open_ > close_:
-                p.setBrush(pg.mkBrush('r'))
-            else:
-                p.setBrush(pg.mkBrush('g'))
-            p.drawRect(QtCore.QRectF(t_-w, open_, w*2, close_-open_))
+            self.draw(self.data)
         elif self.data.shape[0] == 1:
-            w = 1./3.
-            t_, open_, high_, low_, close_ = self.data[0, :]
-            p.drawLine(QtCore.QPointF(t_, low_), QtCore.QPointF(t_, high_))
-            if open_ > close_:
-                p.setBrush(pg.mkBrush('r'))
-            else:
-                p.setBrush(pg.mkBrush('g'))
-            p.drawRect(QtCore.QRectF(t_-w, open_, w*2, close_-open_))
+            self.draw(self.data[0])
         else:
             w = (self.data[1][0] - self.data[0][0]) / 3.
-            for (t, open_, max_, min_, close_) in self.data:
-                p.drawLine(QtCore.QPointF(t, min_), QtCore.QPointF(t, max_))
-                if open_ > close_:
-                    p.setBrush(pg.mkBrush('r'))
-                else:
-                    p.setBrush(pg.mkBrush('g'))
-                p.drawRect(QtCore.QRectF(t-w, open_, w*2, close_-open_))
-        p.end()
+            for row in self.data:
+                self.draw(row, w)
+        self.p.end()
+    
+    def draw(self, data, width=1./3.):
+        """draw(self, data, width=1./3.) -> None
+
+        draw an item of candlestick
+
+        Parameters
+        ----------
+
+        width : float (default : 1/3)
+            width of a candlestick
+        """
+        t_, open_, high_, low_, close_ = data[:]
+        self.p.drawLine(QtCore.QPointF(t_, low_), QtCore.QPointF(t_, high_))
+        if open_ > close_:
+            self.p.setBrush(pg.mkBrush('r'))
+        else:
+            self.p.setBrush(pg.mkBrush('g'))
+        self.p.drawRect(QtCore.QRectF(t_ - width, open_, width * 2, close_ - open_))
     
     def paint(self, p, *args):
+        """paint(self, p, *args) -> None
+        
+        this method must be overriden
+        """
         p.drawPicture(0, 0, self.picture)
     
     def boundingRect(self):
+        """boundingRect(self)
+
+        this method must be overriden
+        """
         return QtCore.QRectF(self.picture.boundingRect())
 
 class BoxPlotItem(pg.GraphicsObject):
@@ -118,7 +126,22 @@ class BoxPlotItem(pg.GraphicsObject):
     
     def draw(self, data, width=1./3.):
         """draw(self, data, width=1./3.) -> None
-        draw an item of box plot
+
+        draw an item of boxplot
+
+        Parameters
+        ----------
+        data  : tuple
+            data has the following format:
+                timestamp      : int
+                outliers       : array-like
+                lower whisker  : float
+                first quartile : float
+                median         : float
+                third quartile : float
+                upper whisker  : float
+        width : float (default : 1/3)
+            width of an item of boxplot
         """
         t_, out, low_w, q1, q2, q3, up_w = data[:]
         self.p.drawLine(QtCore.QPointF(t_, low_w), QtCore.QPointF(t_, up_w))
@@ -132,9 +155,17 @@ class BoxPlotItem(pg.GraphicsObject):
         self.p.drawLine(QtCore.QPointF(t_ - width, q2), QtCore.QPointF(t_ + width, q2))
     
     def paint(self, p, *args):
+        """paint(self, p, *args) -> None
+        
+        this method must be overriden
+        """
         p.drawPicture(0, 0, self.picture)
     
     def boundingRect(self):
+        """boundingRect(self)
+
+        this method must be overriden
+        """
         return QtCore.QRectF(self.picture.boundingRect())
 
 if __name__ == "__main__":
@@ -178,6 +209,7 @@ if __name__ == "__main__":
         item2 = BoxPlotItem(data)
         plt2 = glw.addPlot()
         plt2.addItem(item2)
+        plt2.showGrid(True, True)
         glw.show()
     except Exception:
         raise
