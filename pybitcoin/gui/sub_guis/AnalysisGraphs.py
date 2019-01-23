@@ -18,8 +18,13 @@ import sys
 sys.path.append("../")
 import time
 
+try:
+    from CustomGraphicsItem import BoxPlotItem
+except ImportError:
+    from .CustomGraphicsItem import BoxPlotItem
+
 from utils import make_groupbox_and_grid, make_pushbutton, make_label
-from utils import footprint
+from utils import footprint, dataset_for_boxplot
 
 class AnalysisGraphs(QWidget):
     """AnalysisGraphs class
@@ -125,30 +130,35 @@ class AnalysisGraphs(QWidget):
         ----------
         obj : dict
             obj must have the following key-value pairs:
-                benefit_map     : numpy.2darray
-                N_dec           : int
-                stat_dead       : numpy.2darray with the shape of (2**N_dec, 5)
-                stat_golden     : numpy.2darray with the shape of (2**N_dec, 5)
-                dec_dead_list   : list of numpy.1darrays with the length of 2**N_dec
-                dec_golden_list : list of numpy.1darrays with the length of 2**N_dec
+                benefit_map    : numpy.2darray
+                N_dec          : int
+                stat_dead      : numpy.2darray with the shape of (2**N_dec, 5)
+                stat_golden    : numpy.2darray with the shape of (2**N_dec, 5)
+                dec_dead_box   : list of tuples with the length of 2**N_dec
+                dec_golden_box : list of tuples with the length of 2**N_dec
         """
         try:
             if not isinstance(obj, dict):
                 print("The given object is not a dict object.")
                 return
             self.img_benefit.setImage(obj["benefit_map"])
+            self.plot_benefit.showGrid(True, True)
 
             self.plot_box_dead.clear()
+            self.plot_box_dead.addItem(BoxPlotItem(obj["dec_dead_box"]))
             self.plot_box_dead.plot(
                 np.arange(2**obj["N_dec"]), obj["stat_dead"][:, 2],
                 clear=False, pen=pg.mkPen(self._color_stat, width=2)
             )
+            self.plot_box_dead.showGrid(True, True)
 
             self.plot_box_golden.clear()
+            self.plot_box_golden.addItem(BoxPlotItem(obj["dec_golden_box"]))
             self.plot_box_golden.plot(
                 np.arange(2**obj["N_dec"]), obj["stat_golden"][:, 2],
                 clear=False, pen=pg.mkPen(self._color_stat, width=2)
             )
+            self.plot_box_golden.showGrid(True, True)
         except Exception as ex:
             print(ex)
             
@@ -171,9 +181,16 @@ class AnalysisGraphs(QWidget):
             stat_dead[ii] = np.array([arr.max(), arr.min(), arr.mean(), arr.std(), np.median(arr)])
             arr = dec_golden_list[ii]
             stat_golden[ii] = np.array([arr.max(), arr.min(), arr.mean(), arr.std(), np.median(arr)])
+        
+        dec_dead_box = []
+        dec_golden_box = []
+        for ii in range(2**N_dec):
+            dec_dead_box.append(dataset_for_boxplot(dec_dead_list[ii], ii))
+            dec_golden_box.append(dataset_for_boxplot(dec_golden_list[ii], ii))
+
         obj = {
             "N_dec":N_dec, "benefit_map":benefit_map, 
-            "dec_dead_list":dec_dead_list, "dec_golden_list":dec_golden_list, 
+            "dec_dead_box":dec_dead_box, "dec_golden_box":dec_golden_box, 
             "stat_dead":stat_dead, "stat_golden":stat_golden
         }
         self.updateGraphs(obj)

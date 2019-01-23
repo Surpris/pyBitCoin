@@ -9,7 +9,7 @@ import pickle
 # import sys
 # import pybitflyer
 from .footprint import footprint
-from .mathfunctions import symbolize
+from .mathfunctions import symbolize, dataset_for_boxplot
 
 class DataAdapter(object):
     """DataAdapter(object)
@@ -269,6 +269,8 @@ class DataAdapter(object):
             # self._results_list = []
             self._stat_dead_list = []
             self._stat_golden_list = []
+            self._dec_dead_box_list = []
+            self._dec_golden_box_list = []
             self._dec_dead_list = []
             self._dec_golden_list = []
             # if self._ana_initialized and self._analysis_results is not None:
@@ -291,7 +293,7 @@ class DataAdapter(object):
                     self.initOHLCVData()
                     self._benefit_map[ii, ii + 1] = 1*self._jpy_list[-1]
 
-                    # extract patterns
+                    # distribute temporal benefits to patterns
                     dec_dead = [np.empty(0)] * 2**self.N_dec
                     dec_golden = [np.empty(0)] * 2**self.N_dec
                     for jj in range(len(self._cross_signal)):
@@ -317,6 +319,17 @@ class DataAdapter(object):
                                 v = 0
                             dec_dead[self._dec[jj]] = \
                                 np.append(dec_dead[self._dec[jj]], v)
+                    
+                    # make datasets for boxplot
+                    dec_dead_box = []
+                    dec_golden_box = []
+                    for jj in range(2**self.N_dec):
+                        dec_dead_box.append(
+                            dataset_for_boxplot(dec_dead[ii], ii)
+                        )
+                        dec_golden_box.append(
+                            dataset_for_boxplot(dec_golden[ii], ii)
+                        )
                     
                     # calculate statistics
                     stat_dead = np.zeros((2**self.N_dec, 5), dtype=float)
@@ -350,6 +363,8 @@ class DataAdapter(object):
                     # append
                     self._dec_golden_list.append(dec_golden)
                     self._dec_dead_list.append(dec_dead)
+                    self._dec_golden_box_list.append(dec_golden_box)
+                    self._dec_dead_box_list.append(dec_dead_box)
                     self._stat_golden_list.append(stat_golden)
                     self._stat_dead_list.append(stat_dead)
                     break
@@ -499,22 +514,22 @@ class DataAdapter(object):
         -------
         obj : dict
             obj has the following key-value pairs:
-            timestamp      : 1-dimensional array-like
-                timestamp
-            ohlc           : 2-dimensional array-like
-                ohlc
-            volume         : 1-dimensional array-like
-                volume
-            ema1           : 1-dimensional array-like
-                1st EMA curve
-            ema2           : 1-dimensional array-like
-                2nd EMA curve
-            cross_signal   : 1-dimensional array-like
-                cross points of 1st & 2nd EMAs
-            extreme_signal : 1-dimensional array-like
-                signal for extreme points of difference btwn. 1st & 2nd EMAs
-            jpy_list       : 1-dimensional array-like
-                revolution of stock
+                timestamp      : 1-dimensional array-like
+                    timestamp
+                ohlc           : 2-dimensional array-like
+                    ohlc
+                volume         : 1-dimensional array-like
+                    volume
+                ema1           : 1-dimensional array-like
+                    1st EMA curve
+                ema2           : 1-dimensional array-like
+                    2nd EMA curve
+                cross_signal   : 1-dimensional array-like
+                    cross points of 1st & 2nd EMAs
+                extreme_signal : 1-dimensional array-like
+                    signal for extreme points of difference btwn. 1st & 2nd EMAs
+                jpy_list       : 1-dimensional array-like
+                    revolution of stock
         """
 
         if end is None:
@@ -531,33 +546,40 @@ class DataAdapter(object):
         }
         return obj
     
-    def dataset_for_analysis_graphs(self):
-        """dataset_for_analysis_graphs(self) -> dict   
+    def dataset_for_analysis_graphs(self, N_ema1=None):
+        """dataset_for_analysis_graphs(self, N_ema1, N_ema2) -> dict   
         return a dataset for plotting in AnalysisGraphs class.
+
+        Parameters
+        ----------
+        N_ema1 : int (default : None)
+            N number for the first EMA line
 
         Returns
         -------
         obj : dict
             obj has the following key-value pairs:   
-            benefit_map     : numpy.2darray
-                map of benefit
-            N_dec           : int
-                the exponent of the decimal for OHLC patterns
-            stat_dead       : numpy.2darray with the shape of (2**N_dec, 5)
-                statistics of the benefit in dead-cross orders
-            stat_golden     : numpy.2darray with the shape of (2**N_dec, 5)
-                statistics of the benefit in golden-cross orders
-            dec_dead_list   : list of numpy.1darrays with the length of 2**N_dec
-                list of the benefits in dead-cross orders
-            dec_golden_list : list of numpy.1darrays with the length of 2**N_dec
-                list of the benefits in golden-cross orders
+                benefit_map    : numpy.2darray
+                    map of benefit
+                N_dec          : int
+                    the exponent of the decimal for OHLC patterns
+                stat_dead      : numpy.2darray with the shape of (2**N_dec, 5)
+                    statistics of the benefit in dead-cross orders
+                stat_golden    : numpy.2darray with the shape of (2**N_dec, 5)
+                    statistics of the benefit in golden-cross orders
+                dec_dead_box   : list of tuples with the length of 2**N_dec
+                    list of the benefits in dead-cross orders
+                dec_golden_boc : list of tuples with the length of 2**N_dec
+                    list of the benefits in golden-cross orders
         """
+        if N_ema1 is None:
+            N_ema1 = self.N_ema_min
         obj = {
             "N_dec":self.N_dec, 
             "benefit_map":self._benefit_map, 
-            "dec_dead_list":self._dec_dead_list, 
-            "dec_golden_list":self._dec_golden_list, 
-            "stat_dead":self._stat_dead_list, 
-            "stat_golden":self._stat_golden_list
+            "dec_dead_box":self._dec_dead_box_list[N_ema1 - self.N_ema_min], 
+            "dec_golden_boc":self._dec_golden_box_list[N_ema1 - self.N_ema_min], 
+            "stat_dead":self._stat_dead_list[N_ema1 - self.N_ema_min], 
+            "stat_golden":self._stat_golden_list[N_ema1 - self.N_ema_min]
         }
         return obj
