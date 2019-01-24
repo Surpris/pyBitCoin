@@ -13,7 +13,8 @@ from .mathfunctions import symbolize, dataset_for_boxplot
 
 class DataAdapter(object):
     """DataAdapter(object)
-    This class offers an adapter of a dataset to be used in pybitcoin.
+
+    This class offers an adapter of OHLCV and related data used in pybitcoin.
     """
     def __init__(self, df=None, analysis_results=None, 
                  N_ema_min=10, N_ema_max=30, N_ema1=20, N_ema2=21, 
@@ -60,8 +61,9 @@ class DataAdapter(object):
         self.updateAlpha()
         self.initOHLCVData()
 
-        self._ana_initialized = True
-        self._ana_updated = True
+        if self._analysis_results is not None:
+            self._ana_set = True
+        self._ana_update = False
         self.initAnalysisData()
     
     @footprint
@@ -264,22 +266,27 @@ class DataAdapter(object):
 
         initialize the inner data for analysis
         """
-        if self._ana_initialized or self._ana_updated:
-            self._benefit_map = np.zeros((self.N_ema_max + 1, self.N_ema_max + 1), dtype=int)
-            # self._results_list = []
-            self._stat_dead_list = []
-            self._stat_golden_list = []
-            self._dec_dead_box_list = []
-            self._dec_golden_box_list = []
-            self._dec_dead_list = []
-            self._dec_golden_list = []
-            # if self._ana_initialized and self._analysis_results is not None:
-            #     if isinstance(self._analysis_results, dict):
-            #         self._benefit_map = self._analysis_results.get("benefit_map", self._benefit_map)
-            #         self._results_list = self._analysis_results.get("results_list", [])
-            #     else:
-            #         raise TypeError('analysis_results must be a dict object.')
-            if self._ana_updated:
+        try:
+            if self._ana_set:
+                if isinstance(self._analysis_results, dict):
+                    buff = np.zeros((self.N_ema_max + 1, self.N_ema_max + 1), dtype=int)
+                    self._benefit_map = self._analysis_results.get("benefit_map", buff)
+                    self._stat_dead_list = self._analysis_results.get("stat_dead_list", [])
+                    self._stat_golden_list = self._analysis_results.get("stat_golden_list", [])
+                    self._dec_dead_box_list = self._analysis_results.get("dec_dead_box_list", [])
+                    self._dec_golden_box_list = self._analysis_results.get("dec_golden_box_list", [])
+                    self._dec_dead_list = self._analysis_results.get("dec_dead_list", [])
+                    self._dec_golden_list = self._analysis_results.get("dec_golden_list", [])
+                else:
+                    raise TypeError('analysis_results must be a dict object.')
+            elif self._ana_update:
+                self._benefit_map = np.zeros((self.N_ema_max + 1, self.N_ema_max + 1), dtype=int)
+                self._stat_dead_list = []
+                self._stat_golden_list = []
+                self._dec_dead_box_list = []
+                self._dec_golden_box_list = []
+                self._dec_dead_list = []
+                self._dec_golden_list = []
                 # reserve the current dataset temporaly
                 for s in self._tmp_target:
                     exec("tmp_{0} = copy.deepcopy(self._{0})".format(s))
@@ -373,8 +380,10 @@ class DataAdapter(object):
                 for s in self._tmp_target:
                     exec("self._{0} = copy.deepcopy(tmp_{0})".format(s))
                 self.updateAlpha()
-            self._ana_initialized = False
-            self._ana_updated = False
+            self._ana_set = False
+            self._ana_update = False
+        except Exception as ex:
+            print(ex)
     
     def updateAlpha(self):
         """updateAlpha(self) -> None
@@ -428,8 +437,9 @@ class DataAdapter(object):
     @analysis_results.setter
     def analysis_results(self, data):
         self._analysis_results = data
-        self._ana_initialized = True
-        self.initAnalysisData()
+        if self._analysis_results is not None:
+            self._ana_set = True
+            self.initAnalysisData()
     
     @property
     def N_ema1(self):
@@ -547,7 +557,7 @@ class DataAdapter(object):
         return obj
     
     def dataset_for_analysis_graphs(self, N_ema1=None):
-        """dataset_for_analysis_graphs(self, N_ema1, N_ema2) -> dict   
+        """dataset_for_analysis_graphs(self, N_ema1=None) -> dict   
         return a dataset for plotting in AnalysisGraphs class.
 
         Parameters

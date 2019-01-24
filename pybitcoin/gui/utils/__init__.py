@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*
 
 from .analysis_functions import analyze
+from .AnalysisDataAdapter import AnalysisDataAdapter
 from .DataAdapter import DataAdapter
 from .decorator import dynamic_decorator
 from .footprint import footprint
