@@ -10,24 +10,24 @@ def make_groupbox_and_grid(parent, width, height, title, fontsize, spacing):
     
     Parameters
     ----------
-    parent : parent class overtaking QtWidgets
+    parent   : parent class overtaking QtWidgets
         parent
-    width : int
+    width    : int
         width of a group box
-    height : int
+    height   : int
         height of the group box
-    title : str
+    title    : str
         title of the group box
     fontsize : int
         font size of the title
-    spacing : int
+    spacing  : int
         spacing of a grid in the group box
     
     Returns
     -------
     groupbox : QtWidgets.QGroupBox
         a group box
-    grid : QtWidgets.QGridLayout
+    grid     : QtWidgets.QGridLayout
         a grid in the group box
     """
 
@@ -48,17 +48,17 @@ def make_label(parent, text, fontsize, isBold=False, alignment=None, color=None)
 
     Parameters
     ----------
-    parent : parent class overtaking QtWidgets
+    parent    : parent class overtaking QtWidgets
         parent
-    text : str
+    text      : str
         text in a label
-    fontsize : int
+    fontsize  : int
         font size of the text
-    isBold : bool
+    isBold    : bool
         if True, then the text gets bold
     alignment : QtCore.Qt.Align
         alignment of the text
-    color : str (color code)
+    color     : str (color code)
         color of the text
     
     Returns
@@ -89,21 +89,21 @@ def make_pushbutton(parent, width, height, text, fontsize, method=None, color=No
 
     Parameters
     ----------
-    parent : class overtaking QtWidgets
+    parent   : class overtaking QtWidgets
         parent
-    width : int
+    width    : int
         width of a push button
-    height : int
+    height   : int
         height of the push button
-    text : str
+    text     : str
         text on the push button
     fontsize : str
         font size of the text
-    method : function
+    method   : function
         method to call when the button is clicked
-    color : str (color code)
+    color    : str (color code)
         color of the text
-    isBold : bool
+    isBold   : bool
         if True, then the text gets bold
 
     Returns
