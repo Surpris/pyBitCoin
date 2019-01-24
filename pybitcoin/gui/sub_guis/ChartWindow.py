@@ -85,7 +85,7 @@ class ChartWindow(QDialog):
 
         # for settings
         self._N_ema_min = 10
-        self._N_ema_max = 15
+        self._N_ema_max = 30
         self._btc_volime = 1.
         self._count = 0
         self._N_ema1 = 20
@@ -127,11 +127,8 @@ class ChartWindow(QDialog):
     
     def initAnalysisThread(self):
         self._thread_analysis = QThread()
-        self._worker_analysis = AnalysisWorker(
-            N_ema_max=self._N_ema_max, N_ema_min=self._N_ema_min, 
-            N_dec=self._N_dec
-        )
-        # self._worker_analysis.do_something.connect(self.updateAnalysisResults)
+        self._worker_analysis = AnalysisWorker()
+        self._worker_analysis.do_something.connect(self.updateAdapterByWorker)
         self._worker_analysis.moveToThread(self._thread_analysis)
 
         # start
@@ -298,7 +295,7 @@ class ChartWindow(QDialog):
 
             self.button3 = make_pushbutton(
                 self, 40, 16, "Analyze", 14, 
-                method=None, color=None, isBold=False
+                method=self.analyze, color=None, isBold=False
             )
 
             self.button4 = make_pushbutton(
@@ -366,6 +363,18 @@ class ChartWindow(QDialog):
         self.label_days_value.setText("{0:.1f}".format(days))
         self.label_perday_value.setText("{0:.2f}".format(float(self._adapter.jpy_list[-1]) / days))
     
+    @pyqtSlot(object)
+    def updateAdapterByWorker(self, obj):
+        """updateAdapterByWorker(self, obj) -> None
+        """
+        try:
+            assert isinstance(obj, dict) == True, TypeError
+        except TypeError as ex:
+            print(ex)
+            return
+        self._adapter.analysis_results = obj
+        self.drawAnalysisResults()
+    
     def updatePlots(self):
         """updatePlots(self) -> None
 
@@ -388,8 +397,7 @@ class ChartWindow(QDialog):
         if not self._thread_analysis.isRunning():
             if self.DEBUG:
                 print("start thread.")
-            # self._worker_analysis.dataset = self.data.copy()
-            self._worker_analysis.delta = self._delta
+            self._worker_analysis.adapter = copy.deepcopy(self._adapter)
             self._thread_analysis.start()
         else:
             if self.DEBUG:
@@ -401,7 +409,7 @@ class ChartWindow(QDialog):
 
         draw the results of analysis
         """
-        obj = self._adapter.dataset_for_analysis_graphs()
+        obj = self._adapter.dataset_for_analysis_graphs(self._adapter.N_ema1)
         self.analysis_graphs.updateGraphs(obj)
 
 def main():

@@ -6,7 +6,7 @@ import datetime
 import numpy as np
 import pandas as pd
 import pickle
-# import sys
+import sys
 # import pybitflyer
 from .footprint import footprint
 from .mathfunctions import symbolize, dataset_for_boxplot
@@ -63,6 +63,8 @@ class DataAdapter(object):
 
         if self._analysis_results is not None:
             self._ana_set = True
+        else:
+            self._ana_set = False
         self._ana_update = False
         self.initAnalysisData()
     
@@ -82,12 +84,13 @@ class DataAdapter(object):
         self._latest = None
         self._tmp_ltp = []
         self._tmp_ohlc = []
+        if self._df_initialized:
+            self._dec = None
         if self._df_initialized or self._ema_updated:
             self._ltp = []
             self._timestamp = []
             self._ohlc_list = []
             self._volume_list = []
-            self._dec = None
             self._ema_updated = True
             self._close = []
             self._ema1 = []
@@ -383,7 +386,9 @@ class DataAdapter(object):
             self._ana_set = False
             self._ana_update = False
         except Exception as ex:
-            print(ex)
+            _, _2, exc_tb = sys.exc_info()
+            # fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print("line {}: {}".format(exc_tb.tb_lineno, ex))
     
     def updateAlpha(self):
         """updateAlpha(self) -> None
@@ -509,6 +514,42 @@ class DataAdapter(object):
     def order_ltp(self):
         return self._order_ltp
     
+    @property
+    def ana_update(self):
+        return self._ana_update
+    
+    @ana_update.setter
+    def ana_update(self, v):
+        self._ana_update = v
+    
+    @property
+    def benefit_map(self):
+        return self._benefit_map
+
+    @property
+    def dec_dead_box_list(self):
+        return self._dec_dead_box_list
+    
+    @property
+    def dec_golden_box_list(self):
+        return self._dec_golden_box_list
+
+    @property
+    def dec_dead_list(self):
+        return self._dec_dead_list
+    
+    @property
+    def dec_golden_list(self):
+        return self._dec_golden_list
+    
+    @property
+    def stat_dead_list(self):
+        return self._stat_dead_list
+    
+    @property
+    def stat_golden_list(self):
+        return self._stat_golden_list
+
     def dataset_for_chart_graphs(self, start=0, end=None):
         """dataset_for_chart_graphs(self) -> dict   
         return a dataset for plotting in ChartGraphs class.
@@ -588,7 +629,7 @@ class DataAdapter(object):
             "N_dec":self.N_dec, 
             "benefit_map":self._benefit_map, 
             "dec_dead_box":self._dec_dead_box_list[N_ema1 - self.N_ema_min], 
-            "dec_golden_boc":self._dec_golden_box_list[N_ema1 - self.N_ema_min], 
+            "dec_golden_box":self._dec_golden_box_list[N_ema1 - self.N_ema_min], 
             "stat_dead":self._stat_dead_list[N_ema1 - self.N_ema_min], 
             "stat_golden":self._stat_golden_list[N_ema1 - self.N_ema_min]
         }

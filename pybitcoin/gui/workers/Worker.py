@@ -4,10 +4,15 @@
 import numpy as np
 import pybitflyer
 from PyQt5.QtCore import QMutex, QMutexLocker, pyqtSignal, QObject, pyqtSlot
-import sys
-sys.path.append("../")
-from utils import analyze
 import time
+
+try:
+    from ..utils import DataAdapter
+except:
+    import sys
+    sys.path.append("../")
+    from utils import DataAdapter
+
 
 class Worker(QObject):
     do_something = pyqtSignal(object)
@@ -74,59 +79,96 @@ class GetTickerWorker(Worker):
             "executions":executions
         }
 
+# class AnalysisWorker(Worker):
+#     def __init__(self, name = "", parent = None, data_adapter = None):
+#         """__init__(self, name = "", parent = None, data_adapter = None) -> None
+        
+#         initialize this class
+#         """
+#         super().__init__(name=name, parent=parent, debug=False)
+#         self.dataset = None
+#         self.N_ema_max = N_ema_max
+#         self.N_ema_min = N_ema_min
+#         self.N_dec = N_dec
+#         self.delta = delta
+
+#     def _process(self):
+#         """_process(self) -> None
+#         analyze OHLCV dataset
+#         """
+#         st = time.time()
+#         # stat_dead_list = []
+#         # stat_golden_list = []
+#         # ext_dead_list = []
+#         # ext_golden_list = []
+#         # cross_points_list = []
+#         results_list = []
+#         benefit_map = np.zeros((self.N_ema_max + 1, self.N_ema_max + 1), dtype=int)
+#         for ii in range(self.N_ema_min, self.N_ema_max):
+#             results = analyze(self.dataset, ii, ii + 1, self.N_dec, self.delta)
+
+#             # extract benefit
+#             benefits = results["benefits"]
+#             a_k = results["a_k"]
+#             dead_ = -benefits[a_k[:, 1] == -1].sum()
+#             golden_ = benefits[a_k[:, 1] == 1].sum()
+#             benefit_map[ii, ii + 1] = dead_ + golden_
+
+#             results_list.append(results)
+
+#             # extract 
+#             # cross_points_list.append(results["cross_points"])
+#             # stat_dead_list.append(results["stat_dead"])
+#             # stat_golden_list.append(results["stat_golden"])
+#             # ext_dead_list.append(results["list_ext_dead"])
+#             # ext_golden_list.append(results["list_ext_golden"])
+        
+#         self.data = {
+#             "benefit_map":benefit_map,
+#             "results_list":results_list,
+#             # "cross_points_list":cross_points_list,
+#             # "stat_dead_list":stat_dead_list,
+#             # "stat_golden_list":stat_golden_list,
+#             # "ext_dead_list":ext_dead_list,
+#             # "ext_golden_list":ext_golden_list
+#         }
+#         print("finish analysis.")
+#         print("Elapsed time: {0:.2f} sec.".format(time.time() - st))
+
 class AnalysisWorker(Worker):
-    def __init__(self, name = "", parent = None, 
-                 N_ema_max = 30, N_ema_min = 5, N_dec = 5, delta = 10.):
-        """__init__(self, name = "", parent = None, 
-                    N_ema_max = 30, N_ema_min = 5, N_dec = 5, delta = 10.) -> None
+    def __init__(self, name = "", parent = None, adapter = None):
+        """__init__(self, name = "", parent = None, adapter = None) -> None
+        
         initialize this class
+
+        Parameters
+        ----------
+        name    : str
+            name of an instance
+        parent  : instance of a class overtaking QtWidgets
+            parent of the instance
+        adapter : DataAdapter
+            data adapter of OHLCV dataset
         """
         super().__init__(name=name, parent=parent, debug=False)
-        self.dataset = None
-        self.N_ema_max = N_ema_max
-        self.N_ema_min = N_ema_min
-        self.N_dec = N_dec
-        self.delta = delta
+        self.adapter = adapter
 
     def _process(self):
         """_process(self) -> None
+
         analyze OHLCV dataset
         """
+        print("AnalysisWorker.process(): start.")
         st = time.time()
-        # stat_dead_list = []
-        # stat_golden_list = []
-        # ext_dead_list = []
-        # ext_golden_list = []
-        # cross_points_list = []
-        results_list = []
-        benefit_map = np.zeros((self.N_ema_max + 1, self.N_ema_max + 1), dtype=int)
-        for ii in range(self.N_ema_min, self.N_ema_max):
-            results = analyze(self.dataset, ii, ii + 1, self.N_dec, self.delta)
-
-            # extract benefit
-            benefits = results["benefits"]
-            a_k = results["a_k"]
-            dead_ = -benefits[a_k[:, 1] == -1].sum()
-            golden_ = benefits[a_k[:, 1] == 1].sum()
-            benefit_map[ii, ii + 1] = dead_ + golden_
-
-            results_list.append(results)
-
-            # extract 
-            # cross_points_list.append(results["cross_points"])
-            # stat_dead_list.append(results["stat_dead"])
-            # stat_golden_list.append(results["stat_golden"])
-            # ext_dead_list.append(results["list_ext_dead"])
-            # ext_golden_list.append(results["list_ext_golden"])
-        
+        self.adapter.ana_update = True
+        self.adapter.initAnalysisData()
         self.data = {
-            "benefit_map":benefit_map,
-            "results_list":results_list,
-            # "cross_points_list":cross_points_list,
-            # "stat_dead_list":stat_dead_list,
-            # "stat_golden_list":stat_golden_list,
-            # "ext_dead_list":ext_dead_list,
-            # "ext_golden_list":ext_golden_list
+            "benefit_map":self.adapter.benefit_map, 
+            "stat_dead_list":self.adapter.stat_dead_list, 
+            "stat_golden_list":self.adapter.stat_golden_list, 
+            "dec_dead_box_list":self.adapter.dec_dead_box_list, 
+            "dec_golden_box_list":self.adapter.dec_golden_box_list, 
+            "dec_dead_list":self.adapter.dec_dead_list, 
+            "dec_golden_list":self.adapter.dec_golden_list, 
         }
-        print("finish analysis.")
-        print("Elapsed time: {0:.2f} sec.".format(time.time() - st))
+        print("AnalysisWorker.process(): finish. {0:.2f} sec.".format(time.time() - st))

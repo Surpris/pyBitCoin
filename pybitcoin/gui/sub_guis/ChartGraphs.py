@@ -28,11 +28,13 @@ from utils import footprint
 
 class ChartGraphs(QWidget):
     """ChartGraphs class
+    
     This class offers an window to plot the results of analysis of OHLCV datasets.
     """
 
     def __init__(self, parent = None, name = "", **kwargs):
         """__init__(self, parent = None, name = "", **kwargs) -> None
+
         initialize this class
         """
         super().__init__(parent)
@@ -45,6 +47,7 @@ class ChartGraphs(QWidget):
     @footprint
     def initInnerParameters(self):
         """initInnerParameters(self) -> None
+
         initialize the inner parameters
         """
         self.is_closed = False
@@ -64,6 +67,7 @@ class ChartGraphs(QWidget):
     @footprint
     def initGui(self):
         """initGui(self) -> None
+
         initialize the GUI
         """
         # initialize the main
@@ -96,7 +100,8 @@ class ChartGraphs(QWidget):
     
     @pyqtSlot(object)
     def updateGraphs(self, obj):
-        """updateGraphs(self, obj) -> None   
+        """updateGraphs(self, obj) -> None
+
         update graphs
 
         Parameters
