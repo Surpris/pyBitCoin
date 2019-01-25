@@ -54,7 +54,7 @@ class DataAdapter(object):
         self.N_ema_max = N_ema_max
         self._N_ema1 = N_ema1
         self._N_ema2 = N_ema2
-        self.delta = delta # for judgement of extreme maxima / minima
+        self._delta = delta # for judgement of extreme maxima / minima
         self.N_dec = N_dec
         self._th_dec = th_dec
 
@@ -63,6 +63,7 @@ class DataAdapter(object):
         self._golden_patterns = None
         self._df_initialized = True
         self._ema_update = True
+        self._delta_update = True
         self.updateAlpha()
         self.initOHLCVData()
 
@@ -89,7 +90,7 @@ class DataAdapter(object):
         self._latest = None
         self._tmp_ltp = []
         self._tmp_ohlc = []
-        if self._df_initialized or self._ema_update:
+        if self._df_initialized or self._ema_update or self._delta_update:
             self._ltp = []
             self._timestamp = []
             self._ohlc_list = []
@@ -137,6 +138,7 @@ class DataAdapter(object):
         self._benefit_list = np.array(self._benefit_list)
         self._df_initialized = False
         self._ema_update = False
+        self._delta_update = False
     
     def calcDec(self):
         """calcDec(self) -> int
@@ -209,21 +211,25 @@ class DataAdapter(object):
         """
         if len(self._ema1) == 0 or len(self._ema2) == 0:
             raise ValueError("Some error occurs on the inner data.")
-        if self._look_for_max is None:
-            return 0.
         diff = self._ema1[-1] - self._ema2[-1]
         self._current_max = max([diff, self._current_max])
         self._current_min = min([diff, self._current_min])
-        if self._look_for_max and diff < self._current_max - self.delta:
+        if self._look_for_max is None:
+            value = 0.
+        elif self._look_for_max and diff < self._current_max - self._delta:
             self._look_for_max = False
             self._current_min = diff
-            return 1.
-        elif (not self._look_for_max) and diff > self._current_min + self.delta:
+            value = 1.
+        elif (not self._look_for_max) and diff > self._current_min + self._delta:
             self._look_for_max = True
             self._current_max = diff
-            return -1.
+            value = -1.
         else:
+            value = 0.
+        if self._current_state == "wait":
             return 0.
+        else:
+            return value
     
     def updateExecutionState(self):
         """updateExecutionState(self) -> None
@@ -483,6 +489,23 @@ class DataAdapter(object):
         self._N_ema2 = N
         self._alpha2 = 2./(self._N_ema2 + 1.)
         self._ema_update = True
+    
+    @property
+    def delta(self):
+        return self._delta
+    
+    @delta.setter
+    def delta(self, v):
+        self._delta = v
+        self._delta_update = True
+    
+    @property
+    def th_dec(self):
+        return self._th_dec
+    
+    @th_dec.setter
+    def th_dec(self, v):
+        self._th_dec = v
 
     @property
     def timestamp(self):
@@ -567,6 +590,25 @@ class DataAdapter(object):
     @property
     def stat_golden_list(self):
         return self._stat_golden_list
+    
+    def register(self):
+        """register(self) -> None
+
+        register patterns
+        """
+        mean = self._stat_dead_list[self._N_ema1][:, 2]
+        self._dead_patterns = np.arange(2**self.N_dec)[mean > self._th_dec]
+
+        mean = self._stat_golden_list[self._N_ema1][:, 2]
+        self._golden_patterns = np.arange(2**self.N_dec)[mean > self._th_dec]
+    
+    def unregister(self):
+        """unregister(self) -> None
+
+        unregister patterns
+        """
+        self._dead_patterns = None
+        self._golden_patterns = None
 
     def dataset_for_chart_graphs(self, start=0, end=None):
         """dataset_for_chart_graphs(self) -> dict   
@@ -641,6 +683,7 @@ class DataAdapter(object):
                 dec_golden_boc : list of tuples with the length of 2**N_dec
                     list of the benefits in golden-cross orders
         """
+
         if N_ema1 is None:
             N_ema1 = self.N_ema_min
         obj = {
