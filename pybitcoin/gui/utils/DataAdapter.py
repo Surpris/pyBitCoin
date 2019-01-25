@@ -57,7 +57,7 @@ class DataAdapter(object):
 
         # initialize inner data
         self._df_initialized = True
-        self._ema_updated = True
+        self._ema_update = True
         self.updateAlpha()
         self.initOHLCVData()
 
@@ -86,12 +86,12 @@ class DataAdapter(object):
         self._tmp_ohlc = []
         if self._df_initialized:
             self._dec = None
-        if self._df_initialized or self._ema_updated:
+        if self._df_initialized or self._ema_update:
             self._ltp = []
             self._timestamp = []
             self._ohlc_list = []
             self._volume_list = []
-            self._ema_updated = True
+            self._ema_update = True
             self._close = []
             self._ema1 = []
             self._ema2 = []
@@ -114,7 +114,7 @@ class DataAdapter(object):
                     buff = np.zeros(5)
                     buff[0] = ii + 1
                     buff[1:] = row.copy()
-                    if self._df_initialized or self._ema_updated:
+                    if self._df_initialized or self._ema_update:
                         self._timestamp.append(ii + 1)
                         self._volume_list.append(volume_[ii])
                         self._ohlc_list.append(buff.copy())
@@ -130,7 +130,7 @@ class DataAdapter(object):
                 raise TypeError('df must be a pandas.DataFrame object.')
         self._benefit_list = np.array(self._benefit_list)
         self._df_initialized = False
-        self._ema_updated = False
+        self._ema_update = False
     
     def calcEMA(self, ema_list, alpha):
         """calcEMA(self, ema_list, alpha) -> float
@@ -299,6 +299,7 @@ class DataAdapter(object):
                     # calculate a dataset of signals
                     self._N_ema1 = ii
                     self._N_ema2 = ii + 1
+                    self._ema_update = True
                     self.updateAlpha()
                     self.initOHLCVData()
                     self._benefit_map[ii, ii + 1] = 1*self._jpy_list[-1]
@@ -335,10 +336,10 @@ class DataAdapter(object):
                     dec_golden_box = []
                     for jj in range(2**self.N_dec):
                         dec_dead_box.append(
-                            dataset_for_boxplot(dec_dead[ii], ii)
+                            dataset_for_boxplot(dec_dead[jj], jj)
                         )
                         dec_golden_box.append(
-                            dataset_for_boxplot(dec_golden[ii], ii)
+                            dataset_for_boxplot(dec_golden[jj], jj)
                         )
                     
                     # calculate statistics
@@ -349,8 +350,8 @@ class DataAdapter(object):
                         arr = dec_golden[jj]
                         if len(arr) != 0:
                             ind = np.abs(arr) <=100000
-                            dec_golden[ii] = arr[ind]
-                            stat_golden[ii] = np.array([
+                            dec_golden[jj] = arr[ind]
+                            stat_golden[jj] = np.array([
                                 arr[ind].max(), 
                                 arr[ind].min(), 
                                 arr[ind].mean(), 
@@ -358,11 +359,11 @@ class DataAdapter(object):
                                 np.median(arr[ind])
                             ])
                         # dead case
-                        arr = dec_dead[ii]
+                        arr = dec_dead[jj]
                         if len(arr) != 0:
                             ind = np.abs(arr) <=100000
-                            dec_dead[ii] = arr[ind]
-                            stat_dead[ii] = np.array([
+                            dec_dead[jj] = arr[ind]
+                            stat_dead[jj] = np.array([
                                 arr[ind].max(), 
                                 arr[ind].min(), 
                                 arr[ind].mean(), 
@@ -377,7 +378,6 @@ class DataAdapter(object):
                     self._dec_dead_box_list.append(dec_dead_box)
                     self._stat_golden_list.append(stat_golden)
                     self._stat_dead_list.append(stat_dead)
-                    break
                 
                 # set the preserved dataset to the inner parameters
                 for s in self._tmp_target:
@@ -454,7 +454,7 @@ class DataAdapter(object):
     def N_ema1(self, N):
         self._N_ema1 = N
         self._alpha1 = 2./(self._N_ema1 + 1.)
-        self._ema_updated = True
+        self._ema_update = True
     
     @property
     def N_ema2(self):
@@ -464,7 +464,7 @@ class DataAdapter(object):
     def N_ema2(self, N):
         self._N_ema2 = N
         self._alpha2 = 2./(self._N_ema2 + 1.)
-        self._ema_updated = True
+        self._ema_update = True
 
     @property
     def timestamp(self):

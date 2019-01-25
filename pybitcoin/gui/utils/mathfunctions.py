@@ -172,6 +172,8 @@ def dataset_for_boxplot(arr, k=0):
     -------
     a tuple having the above format
     """
+    if len(arr) == 0:
+        return (k, [], 0, 0, 0, 0, 0)
     if not isinstance(arr, np.ndarray):
         arr = np.array(arr)
     q1 = np.percentile(arr, 25)

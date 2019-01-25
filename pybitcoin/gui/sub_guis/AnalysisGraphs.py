@@ -100,8 +100,7 @@ class AnalysisGraphs(QWidget):
                 if self.img_benefit.image is not None:
                     img = self.img_benefit.image
                     if 0 <= x <= img.shape[1] and 0 <= y <= img.shape[0]:
-                        pass
-                        self.label_coor_value.setText("({0}, {1}, {2:.2e})".format(x, y, img[y, x]))
+                        self.label_coor_value.setText("({0}, {1}, {2:.4e})".format(x, y, img[x, y]))
             except IndexError:
                 pass
             except Exception as ex:
