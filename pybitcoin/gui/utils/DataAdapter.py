@@ -18,10 +18,10 @@ class DataAdapter(object):
     """
     def __init__(self, df=None, analysis_results=None, 
                  N_ema_min=10, N_ema_max=30, N_ema1=20, N_ema2=21, 
-                 delta=10., N_dec=5):
+                 delta=10., N_dec=5, th_dec=0.):
         """__init__(self, df=None, analysis_results=None, 
                     N_ema_min=10, N_ema_max=30, N_ema1=20, N_ema2=21, 
-                    delta=10., N_dec=5) -> None
+                    delta=10., N_dec=5, th_dec=0.) -> None
         
         initialize this class
 
@@ -43,6 +43,8 @@ class DataAdapter(object):
             threshold for the extreme points
         N_dec            : int (default : 5)
             the exponent of the decimal for OHLC patterns
+        th_dec           : float (default : 5)
+            threshold to average benefits on each pattern
         """
         self._data_frame = df
         self._analysis_results = analysis_results
@@ -54,8 +56,11 @@ class DataAdapter(object):
         self._N_ema2 = N_ema2
         self.delta = delta # for judgement of extreme maxima / minima
         self.N_dec = N_dec
+        self._th_dec = th_dec
 
         # initialize inner data
+        self._dead_patterns = None
+        self._golden_patterns = None
         self._df_initialized = True
         self._ema_update = True
         self.updateAlpha()
@@ -84,12 +89,12 @@ class DataAdapter(object):
         self._latest = None
         self._tmp_ltp = []
         self._tmp_ohlc = []
-        if self._df_initialized:
-            self._dec = None
         if self._df_initialized or self._ema_update:
             self._ltp = []
             self._timestamp = []
             self._ohlc_list = []
+            self._oc_up_down = []
+            self._dec = []
             self._volume_list = []
             self._ema_update = True
             self._close = []
@@ -119,18 +124,29 @@ class DataAdapter(object):
                         self._volume_list.append(volume_[ii])
                         self._ohlc_list.append(buff.copy())
                         self._close.append(row[-1])
+                        self._oc_up_down.append(int(row[-1] > row[0]))
+                        self._dec.append(self.calcDec())
                         self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
                         self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
                         self._cross_signal.append(self.judgeCrossPoint())
                         self._extreme_signal.append(self.judgeExtremePoint())
                         self.updateExecutionState()
-                if self._df_initialized:
-                    self._dec = symbolize(self._data_frame, self.N_dec)
+                self._dec = np.array(self._dec, dtype=int)
             else:
                 raise TypeError('df must be a pandas.DataFrame object.')
         self._benefit_list = np.array(self._benefit_list)
         self._df_initialized = False
         self._ema_update = False
+    
+    def calcDec(self):
+        """calcDec(self) -> int
+
+        calculate the decimal value for the corresponding pattern
+        """
+        if len(self._dec) < self.N_dec:
+            return 0
+        else:
+            return int("".join([str(i_) for i_ in self._oc_up_down[-self.N_dec:]]), 2)
     
     def calcEMA(self, ema_list, alpha):
         """calcEMA(self, ema_list, alpha) -> float
@@ -280,6 +296,8 @@ class DataAdapter(object):
                     self._dec_golden_box_list = self._analysis_results.get("dec_golden_box_list", [])
                     self._dec_dead_list = self._analysis_results.get("dec_dead_list", [])
                     self._dec_golden_list = self._analysis_results.get("dec_golden_list", [])
+                    self._dead_patterns = self._analysis_results.get("dead_patterns")
+                    self._golden_patterns = self._analysis_results.get("golden_patterns")
                 else:
                     raise TypeError('analysis_results must be a dict object.')
             elif self._ana_update:
