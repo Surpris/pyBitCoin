@@ -85,7 +85,7 @@ class ChartWindow(QDialog):
         self._chk_box_bg_color = "#FFFFFF"
 
         # for settings
-        self._N_ema_min = 10
+        self._N_ema_min = 1
         self._N_ema_max = 30
         self._btc_volime = 1.
         self._count = 0

@@ -3,6 +3,7 @@
 
 import copy
 import datetime
+from itertools import combinations
 import numpy as np
 import pandas as pd
 import pickle
@@ -17,7 +18,7 @@ class DataAdapter(object):
     This class offers an adapter of OHLCV and related data used in pybitcoin.
     """
     def __init__(self, df=None, analysis_results=None, 
-                 N_ema_min=10, N_ema_max=30, N_ema1=20, N_ema2=21, 
+                 N_ema_min=1, N_ema_max=30, N_ema1=20, N_ema2=21, 
                  delta=10., N_dec=5, th_dec=0., **kwargs):
         """__init__(self, df=None, analysis_results=None, 
                     N_ema_min=10, N_ema_max=30, N_ema1=20, N_ema2=21, 
@@ -162,7 +163,6 @@ class DataAdapter(object):
                         self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
                         self._cross_signal.append(self.judgeCrossPoint())
                         self._extreme_signal.append(self.judgeExtremePoint())
-                        # self.updateExecutionState2()
                         self.updateExecutionState()
                         self.orderProcess()
                 self._dec = np.array(self._dec, dtype=int)
@@ -282,64 +282,6 @@ class DataAdapter(object):
         elif self._current_state == "buy":
             if self._cross_signal[-1] == 1. or self._extreme_signal[-1] == -1.:
                 self._current_state = "con"
-    
-    def updateExecutionState2(self):
-        """updateExecutionState(self) -> None
-
-        update the state of execution
-
-        #TODO: modify this method
-        """
-        if len(self._close) == 1:
-            self._jpy_list.append(0)
-            self._benefit_list.append(0)
-            return
-        self._jpy_list.append(self._jpy_list[-1])
-        self._benefit_list.append(0)
-        if self._current_state == "ask":
-            if self._stop_by_cross: # when the previous state is "buy"
-                ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-                self._jpy_list[-1] -= ltp_ - self._order_ltp
-                self._benefit_list[-1] -= ltp_ - self._order_ltp
-                self._stop_by_cross = False
-            self._order_ltp = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])    
-            self._current_state = "sell"
-        elif self._current_state == "bid":
-            if self._stop_by_cross: # when the previous state is "sell"
-                ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-                self._jpy_list[-1] += ltp_ - self._order_ltp
-                self._benefit_list[-1] += ltp_ - self._order_ltp
-                self._stop_by_cross = False
-            self._order_ltp = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-            self._current_state = "buy"
-        elif self._current_state == "sell":
-            if self._extreme_signal[-2] == 1.:
-                ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-                self._jpy_list[-1] += ltp_ - self._order_ltp
-                self._benefit_list[-1] += ltp_ - self._order_ltp
-                self._order_ltp = 0
-                self._current_state = "wait"
-                self._look_for_max = None
-        elif self._current_state == "buy":
-            if self._extreme_signal[-2] == -1.:
-                ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
-                self._jpy_list[-1] -= ltp_ - self._order_ltp
-                self._benefit_list[-1] -= ltp_ - self._order_ltp
-                self._order_ltp = 0
-                self._current_state = "wait"
-                self._look_for_max = None
-        if self._cross_signal[-1] == 1.: # ask in the next step
-            if self._current_state == "buy":
-                self._stop_by_cross = True
-                # pass
-            self._look_for_max = True
-            self._current_state = "ask"
-        elif self._cross_signal[-1] == -1.: # bid in the next step
-            if self._current_state == "sell":
-                self._stop_by_cross = True
-                # pass
-            self._look_for_max = False
-            self._current_state = "bid"
         
     def orderProcess(self):
         """orderProcess(self) -> None
@@ -449,14 +391,16 @@ class DataAdapter(object):
                     exec("tmp_{0} = copy.deepcopy(self._{0})".format(s))
                 
                 # calculate statistics and benefits for each pair (N_ema1, N_ema2)
-                for ii in range(self.N_ema_min, self.N_ema_max):
+                for ii, kk in combinations(np.arange(0, self.N_ema_max - self.N_ema_min + 1), 2):
+                # for ii in range(self.N_ema_min, self.N_ema_max):
+                #     for kk in range(ii, self.N_ema_max):
                     # calculate a dataset of signals
-                    self._N_ema1 = ii
-                    self._N_ema2 = ii + 1
+                    self._N_ema1 = self.N_ema_min + ii
+                    self._N_ema2 = self.N_ema_min + kk
                     self._ema_update = True
                     self.updateAlpha()
                     self.initOHLCVData()
-                    self._benefit_map[ii, ii + 1] = 1*self._jpy_list[-1]
+                    self._benefit_map[ii + 1, kk + 1] = 1*self._jpy_list[-1]
 
                     # distribute temporal benefits to patterns
                     dec_dead = [np.empty(0)] * 2**self.N_dec
@@ -787,14 +731,16 @@ class DataAdapter(object):
         }
         return obj
     
-    def dataset_for_analysis_graphs(self, N_ema1=None):
-        """dataset_for_analysis_graphs(self, N_ema1=None) -> dict   
+    def dataset_for_analysis_graphs(self, N_ema1=None, N_ema2=None):
+        """dataset_for_analysis_graphs(self, N_ema1=None, N_ema2=None) -> dict   
         return a dataset for plotting in AnalysisGraphs class.
 
         Parameters
         ----------
         N_ema1 : int (default : None)
             N number for the first EMA line
+        N_ema2 : int (default : None)
+            N number for the second EMA line
 
         Returns
         -------
@@ -816,6 +762,14 @@ class DataAdapter(object):
 
         if N_ema1 is None:
             N_ema1 = self.N_ema_min
+        if N_ema2 is None:
+            N_ema2 = N_ema1 + 1
+        index = 0
+        for ii, kk in combinations(np.arange(0, self.N_ema_max - self.N_ema_min + 1), 2):
+            if ii == N_ema1 - self.N_ema_min:
+                if kk == N_ema2 - self.N_ema_min - 1:
+                    break
+            index += 1
         obj = {
             "N_dec":self.N_dec, 
             "benefit_map":self._benefit_map, 
