@@ -18,10 +18,10 @@ class DataAdapter(object):
     """
     def __init__(self, df=None, analysis_results=None, 
                  N_ema_min=10, N_ema_max=30, N_ema1=20, N_ema2=21, 
-                 delta=10., N_dec=5, th_dec=0.):
+                 delta=10., N_dec=5, th_dec=0., **kwargs):
         """__init__(self, df=None, analysis_results=None, 
                     N_ema_min=10, N_ema_max=30, N_ema1=20, N_ema2=21, 
-                    delta=10., N_dec=5, th_dec=0.) -> None
+                    delta=10., N_dec=5, th_dec=0., **kwargs) -> None
         
         initialize this class
 
@@ -45,6 +45,15 @@ class DataAdapter(object):
             the exponent of the decimal for OHLC patterns
         th_dec           : float (default : 5)
             threshold to average benefits on each pattern
+        kwargs           : options
+            api             : API class in pybitflyer
+                an API instance
+            product_code    : str (default : "FX_BTC_JPY")
+                product code
+            order_condition : str (default : "MARKET")
+                market type
+            size            : float (default : 1.0)
+                size of BTC to order
         """
         self._data_frame = df
         self._analysis_results = analysis_results
@@ -57,6 +66,25 @@ class DataAdapter(object):
         self._delta = delta # for judgement of extreme maxima / minima
         self.N_dec = N_dec
         self._th_dec = th_dec
+
+        # for API of pybitflyer
+        # self._product_code = kwargs.get("product_code", "FX_BTC_JPY")
+        # self._order_condition = kwargs.get("order_condition", "MARKET")
+        # self._size = kwargs.get("size", 1.0)
+        # self._params_buy = {
+        #     "product_code":self._product_code,
+        #     "child_order_type":self._order_condition,
+        #     "side":"buy",
+        #     "size":self._size,
+        #     "minute_to_expire":10
+        # }
+        # self._params_sell = {
+        #     "product_code":self._product_code,
+        #     "child_order_type":self._order_condition,
+        #     "side":"sell",
+        #     "size":self._size,
+        #     "minute_to_expire":10
+        # }
 
         # initialize inner data
         self._dead_patterns = None
@@ -113,10 +141,12 @@ class DataAdapter(object):
             self._stop_by_cross = False
 
         if self._data_frame is not None:
+            self._ii = 0
             if isinstance(self._data_frame, pd.DataFrame):
                 data_ = self._data_frame[["open", "high", "low", "close"]].values
                 volume_ = self._data_frame["volume"].values
                 for ii, row in enumerate(data_):
+                    self._ii = ii
                     buff = np.zeros(5)
                     buff[0] = ii + 1
                     buff[1:] = row.copy()
@@ -132,6 +162,7 @@ class DataAdapter(object):
                         self._cross_signal.append(self.judgeCrossPoint())
                         self._extreme_signal.append(self.judgeExtremePoint())
                         self.updateExecutionState()
+                        self.orderProcess()
                 self._dec = np.array(self._dec, dtype=int)
             else:
                 raise TypeError('df must be a pandas.DataFrame object.')
@@ -249,6 +280,7 @@ class DataAdapter(object):
                 ltp_ = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
                 self._jpy_list[-1] -= ltp_ - self._order_ltp
                 self._benefit_list[-1] -= ltp_ - self._order_ltp
+                self._stop_by_cross = False
             self._order_ltp = max([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])    
             self._current_state = "sell"
         elif self._current_state == "bid":
@@ -256,6 +288,7 @@ class DataAdapter(object):
                 ltp_ = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
                 self._jpy_list[-1] += ltp_ - self._order_ltp
                 self._benefit_list[-1] += ltp_ - self._order_ltp
+                self._stop_by_cross = False
             self._order_ltp = min([self._ohlc_list[-1][1], self._ohlc_list[-1][-1]])
             self._current_state = "buy"
         elif self._current_state == "sell":
@@ -276,14 +309,71 @@ class DataAdapter(object):
                 self._look_for_max = None
         if self._cross_signal[-1] == 1.: # ask in the next step
             if self._current_state == "buy":
-                self._stop_by_cross == True
+                self._stop_by_cross = True
+                # pass
             self._look_for_max = True
             self._current_state = "ask"
         elif self._cross_signal[-1] == -1.: # bid in the next step
             if self._current_state == "sell":
-                self._stop_by_cross == True
+                self._stop_by_cross = True
+                # pass
             self._look_for_max = False
             self._current_state = "bid"
+        
+    def orderProcess(self):
+        """orderProcess(self) -> None
+
+        process of order
+        """
+        self._jpy_list.append(self._jpy_list[-1])
+        self._benefit_list.append(0)
+        data_ = self._data_frame[["open", "high", "low", "close"]].values
+        if self._ii == len(data_) - 1:
+            return
+        row = data_[self._ii + 1]
+        if self._current_state == "ask":
+            self._order_ltp = max([row[0], row[-1]])
+            self._current_state = "sell"
+        elif self._current_state == "bid":
+            self._order_ltp = min([row[0], row[-1]])
+            self._current_state = "buy"
+        elif self._current_state == "con":
+            # when the previous state is "buy" and cross point reaches before extreme points
+            if self._cross_signal[-1] == 1.:
+                # order of "buy"
+                ltp_ = max([row[0], row[-1]])
+                self._jpy_list[-1] -= ltp_ - self._order_ltp
+                self._benefit_list[-1] -= ltp_ - self._order_ltp
+                self._stop_by_cross = 0
+                # go to ask and order immediately
+                self._order_ltp = max([row[0], row[-1]])    
+                self._current_state = "sell"
+            # when the previous state is "sell" and cross point reaches before extreme points
+            elif self._cross_signal[-1] == -1.:
+                # order of "sell"
+                ltp_ = min([row[0], row[-1]])
+                self._jpy_list[-1] += ltp_ - self._order_ltp
+                self._benefit_list[-1] += ltp_ - self._order_ltp
+                self._stop_by_cross = 0
+                # go to bid and order immediately
+                self._order_ltp = min([row[0], row[-1]])
+                self._current_state = "buy"
+            elif self._extreme_signal[-1] == 1.:
+                # order of "sell"
+                ltp_ = min([row[0], row[-1]])
+                self._jpy_list[-1] += ltp_ - self._order_ltp
+                self._benefit_list[-1] += ltp_ - self._order_ltp
+                self._order_ltp = 0
+                self._current_state = "wait"
+                self._look_for_max = None
+            elif self._extreme_signal[-1] == -1.:
+                # order of "buy"
+                ltp_ = max([row[0], row[-1]])
+                self._jpy_list[-1] -= ltp_ - self._order_ltp
+                self._benefit_list[-1] -= ltp_ - self._order_ltp
+                self._order_ltp = 0
+                self._current_state = "wait"
+                self._look_for_max = None
     
     @footprint
     def initAnalysisData(self):
