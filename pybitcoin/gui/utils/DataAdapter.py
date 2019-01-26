@@ -143,10 +143,11 @@ class DataAdapter(object):
         if self._data_frame is not None:
             self._ii = 0
             if isinstance(self._data_frame, pd.DataFrame):
-                data_ = self._data_frame[["open", "high", "low", "close"]].values
+                self._data_ = self._data_frame[["open", "high", "low", "close"]].values
                 volume_ = self._data_frame["volume"].values
-                for ii, row in enumerate(data_):
+                for ii, row in enumerate(self._data_):
                     self._ii = ii
+                    # print(ii)
                     buff = np.zeros(5)
                     buff[0] = ii + 1
                     buff[1:] = row.copy()
@@ -161,6 +162,7 @@ class DataAdapter(object):
                         self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
                         self._cross_signal.append(self.judgeCrossPoint())
                         self._extreme_signal.append(self.judgeExtremePoint())
+                        # self.updateExecutionState2()
                         self.updateExecutionState()
                         self.orderProcess()
                 self._dec = np.array(self._dec, dtype=int)
@@ -266,6 +268,25 @@ class DataAdapter(object):
         """updateExecutionState(self) -> None
 
         update the state of execution
+        """
+        if self._current_state == "wait":
+            if self._cross_signal[-1] == 1.: # golden cross
+                if self._golden_patterns is None or self._dec[-1] in self._golden_patterns:
+                    self._current_state = "ask"
+            if self._cross_signal[-1] == -1.: # dead cross
+                if self._golden_patterns is None or self._dec[-1] in self._dead_patterns:
+                    self._current_state = "bid"
+        elif self._current_state == "sell":
+            if self._cross_signal[-1] == -1. or self._extreme_signal[-1] == 1.:
+                self._current_state = "con"
+        elif self._current_state == "buy":
+            if self._cross_signal[-1] == 1. or self._extreme_signal[-1] == -1.:
+                self._current_state = "con"
+    
+    def updateExecutionState2(self):
+        """updateExecutionState(self) -> None
+
+        update the state of execution
 
         #TODO: modify this method
         """
@@ -325,39 +346,40 @@ class DataAdapter(object):
 
         process of order
         """
-        self._jpy_list.append(self._jpy_list[-1])
+        if len(self._jpy_list) == 0:
+            self._jpy_list.append(0)
+        else:
+            self._jpy_list.append(self._jpy_list[-1])
         self._benefit_list.append(0)
-        data_ = self._data_frame[["open", "high", "low", "close"]].values
-        if self._ii == len(data_) - 1:
+        # <debug>
+        if self._ii == len(self._data_frame) - 1:
             return
-        row = data_[self._ii + 1]
-        if self._current_state == "ask":
+        row = self._data_[self._ii + 1]
+        # </debug>
+        if self._current_state == "ask": # order of "sell"
             self._order_ltp = max([row[0], row[-1]])
             self._current_state = "sell"
-        elif self._current_state == "bid":
+            self._look_for_max = True
+        elif self._current_state == "bid": # order of "buy"
             self._order_ltp = min([row[0], row[-1]])
             self._current_state = "buy"
+            self._look_for_max = False
         elif self._current_state == "con":
-            # when the previous state is "buy" and cross point reaches before extreme points
-            if self._cross_signal[-1] == 1.:
-                # order of "buy"
-                ltp_ = max([row[0], row[-1]])
-                self._jpy_list[-1] -= ltp_ - self._order_ltp
-                self._benefit_list[-1] -= ltp_ - self._order_ltp
-                self._stop_by_cross = 0
-                # go to ask and order immediately
-                self._order_ltp = max([row[0], row[-1]])    
-                self._current_state = "sell"
-            # when the previous state is "sell" and cross point reaches before extreme points
-            elif self._cross_signal[-1] == -1.:
+            # when the previous state is "sell"
+            ## a dead cross point reaches before the first extreme maximum point
+            if self._cross_signal[-1] == -1.:
                 # order of "sell"
                 ltp_ = min([row[0], row[-1]])
                 self._jpy_list[-1] += ltp_ - self._order_ltp
                 self._benefit_list[-1] += ltp_ - self._order_ltp
                 self._stop_by_cross = 0
+
                 # go to bid and order immediately
                 self._order_ltp = min([row[0], row[-1]])
                 self._current_state = "buy"
+                self._look_for_max = False
+            
+            ## the first extreme maximum point reaches before a dead cross point
             elif self._extreme_signal[-1] == 1.:
                 # order of "sell"
                 ltp_ = min([row[0], row[-1]])
@@ -366,6 +388,22 @@ class DataAdapter(object):
                 self._order_ltp = 0
                 self._current_state = "wait"
                 self._look_for_max = None
+
+            # when the previous state is "buy"
+            ## a golden cross point reaches before the first extreme minimum point
+            elif self._cross_signal[-1] == 1.:
+                # order of "buy"
+                ltp_ = max([row[0], row[-1]])
+                self._jpy_list[-1] -= ltp_ - self._order_ltp
+                self._benefit_list[-1] -= ltp_ - self._order_ltp
+                self._stop_by_cross = 0
+
+                # go to ask and order immediately
+                self._order_ltp = max([row[0], row[-1]])    
+                self._current_state = "sell"
+                self._look_for_max = True
+            
+            ## the first extreme minimum point reaches before a golden cross point
             elif self._extreme_signal[-1] == -1.:
                 # order of "buy"
                 ltp_ = max([row[0], row[-1]])
@@ -374,6 +412,8 @@ class DataAdapter(object):
                 self._order_ltp = 0
                 self._current_state = "wait"
                 self._look_for_max = None
+        else:
+            return
     
     @footprint
     def initAnalysisData(self):

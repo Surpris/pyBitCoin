@@ -33,7 +33,7 @@ except ImportError:
 
 from utils import make_groupbox_and_grid, make_pushbutton, make_label
 from utils import DataAdapter
-
+from utils import footprint
 from workers import AnalysisWorker
 
 class ChartWindow(QDialog):
@@ -60,6 +60,7 @@ class ChartWindow(QDialog):
         self.initAnalysisThread()
         self.initGui()
     
+    @footprint
     def initInnerParameters(self, df, debug):
         """initInnerParameters(self, df, debug) -> None
 
