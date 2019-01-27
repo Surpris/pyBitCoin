@@ -1,6 +1,13 @@
 #! /usr/bin/python3
 # -*- coding: utf-8 -*-
 
+"""
+OrderBoard.py
+This file offers the following items:
+
+* OrderBoard
+"""
+
 import datetime
 import time
 import os
@@ -26,12 +33,15 @@ from sub_guis import ChartWindow
 DEBUG = False
 
 class OrderBoard(QMainWindow):
-    """OrderBoard class (subclass of QMainWindow)
+    """OrderBoard(QMainWindow)
+
+    This class offers functions to check tickers, create orders, etc.
     """
     
     def __init__(self):
-        """__init__(self)
-        initialize the whole of this class.
+        """__init__(self) -> None
+
+        initialize the whole of this class
         """
         super().__init__()
         self.initInnerParameters()
@@ -46,7 +56,8 @@ class OrderBoard(QMainWindow):
     @footprint
     def initInnerParameters(self):
         """initInnerParameters(self) -> None
-        initialize the inner parameters.
+
+        initialize the inner parameters
         """
 
         """ Parameters for the GUI """
@@ -119,6 +130,7 @@ class OrderBoard(QMainWindow):
     
     def __loadConfig(self):
         """__loadConfig(self) -> None
+
         load configuration
         """
         target_type = [int, str, float, list, bool]
@@ -137,8 +149,9 @@ class OrderBoard(QMainWindow):
 
     @footprint
     def initAPI(self):
-        """self.initData() -> None
-        initialize the API of pybitflyer.
+        """initAPI(self) -> None
+
+        initialize the API of pybitflyer
         """
         if os.name == "nt":
             fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], self._api_dir, "*"))[0]
@@ -184,7 +197,8 @@ class OrderBoard(QMainWindow):
     @footprint
     def initData(self):
         """ initData(self) -> None
-        initialize inner data.
+
+        initialize inner data
         """
         self._executions = []
         self._contracts = []
@@ -197,7 +211,8 @@ class OrderBoard(QMainWindow):
     @footprint
     def initMainWidget(self):
         """ initMainWidget(self) -> None
-        initialize the main widget and its grid.
+
+        initialize the main widget and its grid
         """
         self.main_widget = QWidget(self)
         self.setStyleSheet("background-color:{};".format(self._window_color))
@@ -208,7 +223,8 @@ class OrderBoard(QMainWindow):
     @footprint
     def initGui(self):
         """initGui(self) -> None
-        initialize the GUI.
+
+        initialize the GUI
         """
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.initMainWidget()
@@ -518,7 +534,8 @@ class OrderBoard(QMainWindow):
     @footprint
     def setMenuBar(self):
         """setMenuBar(self) -> None
-        Set the contents of the menu bar
+
+        set the contents of the menu bar
         """
         # File
         file_menu = QMenu('&File', self)
@@ -547,6 +564,10 @@ class OrderBoard(QMainWindow):
     @footprint
     @pyqtSlot()
     def showWindow(self):
+        """showWindow(self) -> None
+
+        show an window of chart and analysis graphs
+        """
         self._chart_window = ChartWindow(self)
         self._chart_window.show()
         self._chart_window.raise_()
@@ -556,14 +577,16 @@ class OrderBoard(QMainWindow):
     @footprint
     def setConfig(self):
         """setConfig(self) -> None
-        Set configuration of this application.
+
+        set configuration of this application
         """
         pass
 
     @footprint
     def quitApp(self):
         """quitApp(self) -> None
-        Quit this application.
+
+        quit this application
         """
         self.close()
     
@@ -572,6 +595,7 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def runAutoGetTicker(self):
         """runAutoGetTicker(self) -> None
+
         run a function to get ticker on another thread
         """
         if not self._timer_getData.isActive():
@@ -587,6 +611,7 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def getTickerMaually(self):
         """getTickerMaually(self) -> None
+
         get ticker
         """
         try:
@@ -609,6 +634,7 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def updateOnAsk(self):
         """updateOnAsk(self) -> None
+
         update values when Ask button is pushed
         """
         self.btn_bid.setChecked(False)
@@ -620,6 +646,7 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def updateOnBid(self):
         """updateOnBid(self) -> None
+
         update values when Bid button is pushed
         """
         self.btn_ask.setChecked(False)
@@ -631,6 +658,7 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def checkValidationOfOrder(self):
         """checkValidationOfOrder(self) -> None
+
         check validation of the order
         """
         if not self.btn_ask.isChecked() and not self.btn_bid.isChecked():
@@ -644,6 +672,7 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def add1pct(self):
         """add1pct(self) -> None
+
         add 0.01 BTC to the order size
         """
         if self.txt_btc.text() == "":
@@ -656,6 +685,7 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def add10pct(self):
         """add10pct(self) -> None
+
         add 0.1 BTC to the order size
         """
         if self.txt_btc.text() == "":
@@ -668,6 +698,7 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def add100pct(self):
         """add100pct(self) -> None
+
         add 1 BTC to the order size
         """
         if self.txt_btc.text() == "":
@@ -680,6 +711,7 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def clearSize(self):
         """clearSize(self) -> None
+
         clear the order size
         """
         self.txt_btc.setText("0")
@@ -687,6 +719,8 @@ class OrderBoard(QMainWindow):
     @footprint
     def setTxtBTCJPYEditState(self, state):
         """setTxtBTCJPYEditState(self, state) -> None
+
+        set the state of the textbox for BTCJPY value
         """
         if state == 2:
             self.txt_btcjpy.setReadOnly(True)
@@ -697,6 +731,8 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def updateExpectedValues(self):
         """updateExpectedValues(self) -> None
+
+        update expected values
         """
         self.updateExpectedCurrent()
         # self.updateExpectedGoal()
@@ -753,7 +789,8 @@ class OrderBoard(QMainWindow):
     @pyqtSlot()
     def order(self):
         """order(self) -> None
-        wrapper function to send an order based on the setting of order.
+
+        wrapper function to send an order based on the setting of order
         """
         if self._order_type == "ifdoco":
             self._sendIfdocoOrder()
@@ -763,7 +800,8 @@ class OrderBoard(QMainWindow):
     @footprint
     def _sendIfdocoOrder(self):
         """_sendIfdocoOrder(self) -> None
-        send an IFDOCO order.
+
+        send an IFDOCO order
         """
         # get size and prices
         btcjpy = int(self.txt_btcjpy.text())
@@ -851,7 +889,8 @@ class OrderBoard(QMainWindow):
     @footprint
     def _sendChildOrder(self):
         """_sendChildOrder(self) -> None
-        send an order.
+
+        send an order
         """
         # get size and prices
         btcjpy = int(self.txt_btcjpy.text())
@@ -910,6 +949,9 @@ class OrderBoard(QMainWindow):
     
     # @footprint
     def saveExecutions(self):
+        """saveExecutions(self) -> None
+        save the executions
+        """
         if len(self._executions) <= 0:
             return
         now = datetime.datetime.now().strftime(self._datetimeFmt_DATA)
@@ -1100,6 +1142,7 @@ class OrderBoard(QMainWindow):
     # @footprint
     def updateCurrentTable(self):
         """updateCurrentTable(self) -> None
+        
         TODO: to change the widget from QTableWidget to QTableView
         """
         try:
@@ -1300,7 +1343,8 @@ class OrderBoard(QMainWindow):
     @footprint
     def closeEvent(self, event):
         """closeEvent(self, event) -> None
-        (override function)
+
+        (override function)   
         process on closing the main widget
         """
         if self._thread_getData.isRunning():
@@ -1344,6 +1388,7 @@ class OrderBoard(QMainWindow):
     @footprint
     def deleteTempExecutions(self):
         """deleteTempExecutions(self) -> None
+        
         delete files including each temporary execution
         """
         if not self.DEBUG:
@@ -1356,6 +1401,7 @@ class OrderBoard(QMainWindow):
     @footprint
     def toJson(self):
         """toJson(self) -> None
+        
         serialize configuration
         """
         try:

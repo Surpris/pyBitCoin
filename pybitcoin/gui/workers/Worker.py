@@ -1,6 +1,15 @@
 #! /usr/bin/python3
 # -*- coding: utf-8 -*-
 
+"""
+Worker.py
+This file offers the following items:
+
+* Worker
+* GetTickerWorker
+* AnalysisWorker
+"""
+
 import numpy as np
 import pybitflyer
 from PyQt5.QtCore import QMutex, QMutexLocker, pyqtSignal, QObject, pyqtSlot
@@ -31,6 +40,7 @@ class Worker(QObject):
     @pyqtSlot()
     def process(self):
         """process(self) -> None
+
         This function is to be connected with a pyqtSignal object on another thread.
         """
         st = time.time()
@@ -47,7 +57,8 @@ class Worker(QObject):
         self.finished.emit()
 
     def _process(self):
-        """
+        """_process(self) -> None
+
         Something to do should described in this function.
         """
         print("sleep")
@@ -64,6 +75,7 @@ class GetTickerWorker(Worker):
 
     def _process(self):
         """_process(self) -> None
+
         get information from bitFlyer
         """
         market_data = self._api.ticker(product_code=self._product_code)

@@ -1,6 +1,13 @@
 #! /usr/bin/python3
 # -*- coding: utf-8 -*-
 
+"""
+DataAdapter.py
+This file offers the following items:
+
+* DataAdapter
+"""
+
 import copy
 import datetime
 from itertools import combinations

@@ -37,7 +37,7 @@ from utils import footprint
 from workers import AnalysisWorker
 
 class ChartWindow(QDialog):
-    """ChartWindow class
+    """ChartWindow(QDialog)
 
     This class offers an window to draw candlesticks and analysis results.
     """
@@ -88,31 +88,20 @@ class ChartWindow(QDialog):
         self._N_ema_min = 1
         self._N_ema_max = 30
         self._btc_volime = 1.
-        self._count = 0
         self._N_ema1 = 20
         self._N_ema2 = 21
         self._delta = 10. # for judgement of extreme maxima / minima
         self._datetimeFmt_BITFLYER = "%Y-%m-%dT%H:%M:%S.%f"
         self._datetimeFmt_BITFLYER_2 = "%Y-%m-%dT%H:%M:%S"
-        self._N_benefit = 5
         self._N_dec = 5
 
         # set DataAdapter
         self._adapter = DataAdapter(df=df, 
             N_ema_max=self._N_ema_max, N_ema_min=self._N_ema_min,
             N_dec=self._N_dec, N_ema1=self._N_ema1, N_ema2=self._N_ema2,
-            delta=self._delta, 
+            delta=self._delta, size=self._btc_volime,
         )
 
-        # for chart
-        self._color_ema1 = "#3C8CE7"
-        self._color_ema2 = "#EE8F1D"
-        self._color_cross_signal = "#FFFFFF"
-        self._color_extreme_signal = "#E8EE1D"
-        self._color_stock = "#FFFFFF"
-
-        self._color_stat = "#2FC4DF"
-        
         # for inner data
         self.initInnerData()
 
@@ -144,9 +133,7 @@ class ChartWindow(QDialog):
 
         initialize the GUI
         """
-        # self.setAttribute(Qt.WA_DeleteOnClose)
         self.initMainGrid()
-        # self.setMenuBar()
 
         if self.DEBUG:
             self.setWindowTitle("CandleStick(Emulate)")
@@ -344,6 +331,10 @@ class ChartWindow(QDialog):
             print("line {}: {}".format(exc_tb.tb_lineno, ex))
     
     def updateInnerAdapter(self):
+        """updateInnerAdapter(self) -> None
+        
+        update the adapter
+        """
         if self._adapter.N_ema1 != int(self.le_ema1.text()) or self._N_ema2 != int(self.le_ema2.text()):
             self._adapter.N_ema1 = int(self.le_ema1.text())
             self._adapter.N_ema2 = int(self.le_ema2.text())
@@ -362,11 +353,13 @@ class ChartWindow(QDialog):
         self.label_benefit_value.setText(str(self._adapter.jpy_list[-1]))
         days = len(self._adapter.jpy_list) / 1440.
         self.label_days_value.setText("{0:.1f}".format(days))
-        self.label_perday_value.setText("{0:.2f}".format(float(self._adapter.jpy_list[-1]) / days))
+        self.label_perday_value.setText("{0:.1f}".format(float(self._adapter.jpy_list[-1]) / days))
     
     @pyqtSlot(object)
     def updateAdapterByWorker(self, obj):
         """updateAdapterByWorker(self, obj) -> None
+
+        update the adapter by the worker
         """
         try:
             assert isinstance(obj, dict) == True, TypeError
@@ -379,7 +372,7 @@ class ChartWindow(QDialog):
     def updatePlots(self):
         """updatePlots(self) -> None
 
-        update Grpahs
+        update chart grpahs
         """
         start_ = int(self.le_start.text())
         if start_ >= len(self._adapter.data):
@@ -410,7 +403,7 @@ class ChartWindow(QDialog):
 
         draw the results of analysis
         """
-        obj = self._adapter.dataset_for_analysis_graphs(self._adapter.N_ema1)
+        obj = self._adapter.dataset_for_analysis_graphs(self._adapter.N_ema1, self._adapter.N_ema2)
         self.analysis_graphs.updateGraphs(obj)
 
 def main():

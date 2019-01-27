@@ -27,12 +27,14 @@ from utils import make_groupbox_and_grid, make_pushbutton, make_label
 from utils import footprint, dataset_for_boxplot
 
 class AnalysisGraphs(QWidget):
-    """AnalysisGraphs class
+    """AnalysisGraphs(QWidget)
+
     This class offers an window to plot the results of analysis of OHLCV datasets.
     """
 
     def __init__(self, parent=None, name = "", **kwargs):
         """__init__(self, parent=None, name = "", **kwargs) -> None
+
         initialize this class
         """
         super().__init__(parent)
@@ -45,6 +47,7 @@ class AnalysisGraphs(QWidget):
     @footprint
     def initInnerParameters(self):
         """initInnerParameters(self) -> None
+
         initialize the inner parameters
         """
         self.is_closed = False
@@ -61,6 +64,7 @@ class AnalysisGraphs(QWidget):
     @footprint
     def initGui(self):
         """initGui(self) -> None
+
         initialize the GUI
         """
         # initialize the main
@@ -123,6 +127,7 @@ class AnalysisGraphs(QWidget):
     @pyqtSlot(object)
     def updateGraphs(self, obj):
         """updateGraphs(self, obj) -> None
+
         update graphs
 
         Parameters
@@ -163,6 +168,11 @@ class AnalysisGraphs(QWidget):
             
     @footprint
     def plotInDebugMode(self):
+        """plotInDebugMode(self) -> None
+
+        make data and plot them in the debug mode.
+        This method is supported only in the debug mode.
+        """
         if not self.DEBUG:
             raise Exception("`plotInDebugMode` is supported only in the debug mode.")
         N_dec = 5
