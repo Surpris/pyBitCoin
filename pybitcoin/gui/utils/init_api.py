@@ -51,6 +51,7 @@ def init_api(timeout=2.0, verbose=False):
 
     if verbose:
         try:
+            # check the markets
             endpoint = "/v1/markets"
             is_success = False
             while not is_success:
@@ -66,7 +67,8 @@ def init_api(timeout=2.0, verbose=False):
                 print([currency["product_code"] for currency in currencies])
             else:
                 raise ValueError("No available currencies.")
-
+            
+            # check the permissions of API
             endpoint = "/v1/me/getpermissions"
             is_success = False
             while not is_success:
@@ -82,6 +84,26 @@ def init_api(timeout=2.0, verbose=False):
                 print(permissions)
             else:
                 print("No permitted APIs.")
+            
+            # check the latest executions
+            is_success = False
+            params = {
+                "product_code":"FX_BTC_JPY",
+                "count":10,
+            }
+            while not is_success:
+                try:
+                    executions = api.executions(**params)
+                    is_success = True
+                except:
+                    continue
+            if isinstance(executions, list):
+                print("Latest executions:")
+                for _ in executions:
+                    print(_)
+            else:
+                print("No executions.")
+
         except Exception as ex:
             raise Exception(ex)
     
