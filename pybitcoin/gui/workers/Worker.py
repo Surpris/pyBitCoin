@@ -67,10 +67,11 @@ class Worker(QObject):
         self.isStopped = True
 
 class GetTickerWorker(Worker):
-    def __init__(self, name = "", parent = None, api=None, product_code=None, debug=False):
+    def __init__(self, name = "", parent = None, api=None, product_code=None, adapter=None, debug=False):
         super().__init__(name=name, parent=parent, debug=debug)
         self._api = api
         self._product_code = product_code
+        self._adapter = adapter
         self._count = 200
 
     def _process(self):
@@ -82,13 +83,14 @@ class GetTickerWorker(Worker):
         # balance = self._api.getbalance()
         collateral = self._api.getcollateral()
         health = self._api.getboardstate()
-        executions = self._api.executions(product_code=self._product_code, count=self._count)
+        dataset = self._adapter.updateOHLCVData()
+        # executions = self._api.executions(product_code=self._product_code, count=self._count)
         self.data = {
             "market_data":market_data, 
             "collateral":collateral,
             # "balance":balance,
             "health":health,
-            "executions":executions
+            "dataset":dataset,
         }
 
 # class AnalysisWorker(Worker):

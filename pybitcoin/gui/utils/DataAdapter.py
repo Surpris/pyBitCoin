@@ -9,7 +9,7 @@ This file offers the following items:
 """
 
 import copy
-import datetime
+from datetime import datetime, timedelta
 from itertools import combinations
 import numpy as np
 import pandas as pd
@@ -17,6 +17,7 @@ import pickle
 import sys
 # import pybitflyer
 from .footprint import footprint
+from .init_api import init_api
 from .mathfunctions import symbolize, dataset_for_boxplot
 
 class DataAdapter(object):
@@ -76,23 +77,30 @@ class DataAdapter(object):
         self._th_dec = th_dec
 
         # for API of pybitflyer
-        # self._product_code = kwargs.get("product_code", "FX_BTC_JPY")
-        # self._order_condition = kwargs.get("order_condition", "MARKET")
-        # self._size = kwargs.get("size", 1.0)
-        # self._params_buy = {
-        #     "product_code":self._product_code,
-        #     "child_order_type":self._order_condition,
-        #     "side":"buy",
-        #     "size":self._size,
-        #     "minute_to_expire":10
-        # }
-        # self._params_sell = {
-        #     "product_code":self._product_code,
-        #     "child_order_type":self._order_condition,
-        #     "side":"sell",
-        #     "size":self._size,
-        #     "minute_to_expire":10
-        # }
+        self._api = kwargs.get("api")
+        if self._api is None:
+            self._api = init_api()
+            
+        self._product_code = kwargs.get("product_code", "FX_BTC_JPY")
+        self._order_condition = kwargs.get("order_condition", "MARKET")
+        self._size = kwargs.get("size", 1.0)
+        self._count = 500
+        self._params_buy = {
+            "product_code":self._product_code,
+            "child_order_type":self._order_condition,
+            "side":"buy",
+            "size":self._size,
+            "minute_to_expire":10
+        }
+        self._params_sell = {
+            "product_code":self._product_code,
+            "child_order_type":self._order_condition,
+            "side":"sell",
+            "size":self._size,
+            "minute_to_expire":10
+        }
+        self._datetimeFmt = "%Y-%m-%dT%H:%M:%S.%f"
+        self._datetimeFmt2 = "%Y-%m-%dT%H:%M:%S"
 
         # initialize inner data
         self._dead_patterns = None
@@ -102,6 +110,8 @@ class DataAdapter(object):
         self._delta_update = True
         self.updateAlpha()
         self.initOHLCVData()
+        self.initOHLCVTmpData()
+        # self.updateOHLCVRealTime(None)
 
         if self._analysis_results is not None:
             self._ana_set = True
@@ -118,20 +128,19 @@ class DataAdapter(object):
         """
         if not hasattr(self, "_tmp_target"):
             self._tmp_target = [
-                "N_ema1", "N_ema2", "ltp", "timestamp", "ohlc_list", "volume_list", "close", 
+                "N_ema1", "N_ema2", "ltp", "timestamp", "ohlc_list", 
+                "oc_up_down", "dec", "volume_list", "close", 
                 "ema1", "ema2", "cross_signal", "extreme_signal", 
                 "current_max", "current_min", "look_for_max", "jpy_list", "benefit_list", 
                 "current_state", "order_ltp", "stop_by_cross", 
             ]
-        self._latest = None
-        self._tmp_ltp = []
-        self._tmp_ohlc = []
         if self._df_initialized or self._ema_update or self._delta_update:
             self._ltp = []
             self._timestamp = []
             self._ohlc_list = []
             self._oc_up_down = []
             self._dec = []
+            self._latest_id = None
             self._volume_list = []
             self._ema_update = True
             self._close = []
@@ -173,6 +182,7 @@ class DataAdapter(object):
                         self.updateExecutionState()
                         self.orderProcess()
                 self._dec = np.array(self._dec, dtype=int)
+                # self._latest = 
             else:
                 raise TypeError('df must be a pandas.DataFrame object.')
         self._benefit_list = np.array(self._benefit_list)
@@ -199,7 +209,7 @@ class DataAdapter(object):
         ----------
         ema_list : array-like
             list of historical EMA values
-        alpha : float
+        alpha    : float
             alpha parameter of EMA calculation
         
         Returns
@@ -207,9 +217,9 @@ class DataAdapter(object):
         current EMA value (float)
         """
         if len(ema_list) == 0:
-            return self._close[-1]
+            return self._close[0]
         else:
-            return (1. - alpha) * ema_list[-1] + alpha * self._close[-1]
+            return (1. - alpha) * ema_list[-1] + alpha * self._close[self._ii]
     
     def judgeCrossPoint(self):
         """judgeCrossPoint(self) -> float
@@ -363,6 +373,24 @@ class DataAdapter(object):
                 self._look_for_max = None
         else:
             return
+        
+    def initOHLCVTmpData(self):
+        """initOHLCTmpData(self) -> None
+
+        initialize temporary data of OHLCV
+        """
+        self._latest = None # latest timestamp
+        self._tmp_ohlc = []
+        self._ltp = np.empty(0, dtype=int)
+        self._tmp_ltp = np.empty(0, dtype=int) # for temporal stock
+        self._tmp_volume = np.empty(0, dtype=float)
+        self._t_start = None
+        self._t_next = None
+        self._t_end = None
+        self._id_start = None
+        self._id_next = None
+        self._id_end = None
+        self._df_new = None
     
     @footprint
     def initAnalysisData(self):
@@ -502,6 +530,76 @@ class DataAdapter(object):
         """
         self._alpha1 = 2./(self._N_ema1 + 1.)
         self._alpha2 = 2./(self._N_ema2 + 1.)
+    
+    def updateOHLCVData(self):
+        """updateOHLCVData(self) -> None
+
+        update OHLCV data
+        """
+        params = {
+            "product_code":self._product_code,
+            "count":self._count,
+            "before":self._id_next + self._count + 1,
+        }
+        ## get executions
+        is_success = False
+        fault_count = 0
+        while not is_success:
+            try:
+                results = self._api.executions(**params)[::-1]
+                is_success = True
+            except:
+                fault_count += 1
+                continue
+        
+        ## extract
+        ids_ = np.array([_res["id"] for _res in results], dtype=int)
+        ltps_ = np.array([_res["price"] for _res in results], dtype=int)
+        volumes_ = np.array([_res["size"] for _res in results], dtype=float)
+        datetimes_ = []
+        for _res in results:
+            try:
+                datetimes_.append(datetime.strptime(_res["exec_date"], self._datetimeFmt))
+            except ValueError:
+                datetimes_.append(datetime.strptime(_res["exec_date"], self._datetimeFmt2))
+        datetimes_ = np.array(datetimes_)
+
+        ## find valid indices & extract
+        ind_id = ids_ >= self._id_next
+        ind_now = (datetimes_ >= self._t_start) & (datetimes_ < self._t_next)
+        ind_next = datetimes_ >= self._t_next
+        self._ltp = np.hstack((self._ltp, ltps_[ind_id&ind_now]))
+        self._tmp_ltp = np.hstack((self._tmp_ltp, ltps_[ind_id&ind_now]))
+        self._tmp_volume = np.hstack((self._tmp_volume, volumes_[ind_id&ind_now]))
+        
+        ## processing for next step
+        # if (ind_id&ind_now).sum() == 0:
+        #     id_start_ = 
+        #     continue
+        if ind_next.sum() == 0:
+            self._id_next = 1*(ids_[ind_id&ind_now])[-1]
+        else:
+            timestamp_ = self._t_start.timestamp()
+            id_end_ = 1*(ids_[ind_id&ind_next])[0] - 1
+            self._tmp_ohlc.append([
+                timestamp_, 
+                self._id_start, 
+                self._id_end, 
+                self._tmp_ltp[0], 
+                self._tmp_ltp.max(), 
+                self._tmp_ltp.min(), 
+                self._tmp_ltp[-1], 
+                self._tmp_volume.sum()
+            ])
+            self._id_start = id_end_ + 1
+            self._id_next = 1*(ids_[ind_id&ind_next])[-1]
+            self._tmp_ltp = np.empty(0, dtype=int)
+            self._tmp_ltp = np.hstack((self._tmp_ltp, ltps_[ind_id&ind_next]))
+            self._tmp_volume = np.empty(0, dtype=float)
+            self._tmp_volume = np.hstack((self._tmp_volume, volumes_[ind_id&ind_next]))
+            self._t_start += timedelta(minutes=1)
+            self._t_next += timedelta(minutes=1)
+            print("next id:{}, datetime:{}".format(self._id_start, self._t_start.strftime("%Y-%m-%dT%H:%M:%S")))
     
     @footprint
     def save(self, fpath):
