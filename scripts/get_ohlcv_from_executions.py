@@ -169,7 +169,7 @@ def get_ohlcv(ts, te, api, id_start=None, verbose=False):
     t_next = t_start + timedelta(minutes=1)
     ohlcv_list = []
     ltp_list = np.empty(0, dtype=int)
-    volume_list = np.empty(0, dtype=int)
+    volume_list = np.empty(0, dtype=float)
     id_next = 1*id_start_
     if verbose:
         print("main loop starts.")
@@ -198,7 +198,7 @@ def get_ohlcv(ts, te, api, id_start=None, verbose=False):
             ## extract
             ids_ = np.array([_res["id"] for _res in results], dtype=int)
             ltps_ = np.array([_res["price"] for _res in results], dtype=int)
-            volumes_ = np.array([_res["size"] for _res in results], dtype=int)
+            volumes_ = np.array([_res["size"] for _res in results], dtype=float)
             datetimes_ = []
             for _res in results:
                 try:
@@ -228,7 +228,7 @@ def get_ohlcv(ts, te, api, id_start=None, verbose=False):
                 id_next = 1*(ids_[ind_id&ind_next])[-1]
                 ltp_list = np.empty(0, dtype=int)
                 ltp_list = np.hstack((ltp_list, ltps_[ind_id&ind_next]))
-                volume_list = np.empty(0, dtype=int)
+                volume_list = np.empty(0, dtype=float)
                 volume_list = np.hstack((volume_list, volumes_[ind_id&ind_next]))
                 t_start += timedelta(minutes=1)
                 t_next += timedelta(minutes=1)
@@ -246,10 +246,12 @@ if __name__ == "__main__":
     id_start = data_latest["id_end"].values[-1] + 1
     t_start = datetime.fromtimestamp(data_latest["time"].values[-1]) + timedelta(hours=9, minutes=1)
     t_end = datetime.fromtimestamp(data_latest["time"].values[-1]) + timedelta(days=1, hours=9)
+
+    id_start = 694426164 # 2019/01/01
+    t_start = datetime(2019, 1, 1, 0, 0, 0)
+    t_end = datetime(2019, 1, 26, 0, 0, 0)
+
     print("start:", id_start, t_start, t_end)
-    # id_start = 739559340 # 2019/01/19
-    # t_start = datetime(2019, 1, 19, 0, 1, 0)
-    # t_end = datetime(2019, 1, 20, 0, 0, 0)
     st = time.time()
     ohlcv = get_ohlcv(t_start, t_end, api, id_start, verbose=False)
     t_last = datetime.fromtimestamp(ohlcv["time"].values[-1]) + timedelta(hours=9)
