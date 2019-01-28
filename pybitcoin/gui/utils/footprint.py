@@ -6,8 +6,14 @@ import functools
 # import logging
 import os
 
-from .decorator import dynamic_decorator
-from .get_logger import get_logger
+try:
+    from .decorators import dynamic_decorator
+    from .get_logger import get_logger
+except ImportError:
+    import sys
+    sys.path.append("../utils/")
+    from decorators import dynamic_decorator
+    from get_logger import get_logger
 
 _dtformat = "%Y-%m-%d %H:%M:%S"
 _dtformat_LOG = "%Y%m%d%H%M%S"

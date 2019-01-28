@@ -15,10 +15,17 @@ import numpy as np
 import pandas as pd
 import pickle
 import sys
-# import pybitflyer
-from .footprint import footprint
-from .init_api import init_api
-from .mathfunctions import symbolize, dataset_for_boxplot
+import pybitflyer
+
+try:
+    from .footprint import footprint
+    from .init_api import init_api
+    from .mathfunctions import symbolize, dataset_for_boxplot
+except ImportError:
+    sys.path.append("../utils/")
+    from footprint import footprint
+    from init_api import init_api
+    from mathfunctions import symbolize, dataset_for_boxplot
 
 class DataAdapter(object):
     """DataAdapter(object)
@@ -80,7 +87,6 @@ class DataAdapter(object):
         self._api = kwargs.get("api")
         if self._api is None:
             self._api = init_api()
-            
         self._product_code = kwargs.get("product_code", "FX_BTC_JPY")
         self._order_condition = kwargs.get("order_condition", "MARKET")
         self._size = kwargs.get("size", 1.0)
@@ -108,6 +114,7 @@ class DataAdapter(object):
         self._df_initialized = True
         self._ema_update = True
         self._delta_update = True
+        self._benefit_timing = "worst" # in ["worst", "mean", "open"]
         self.updateAlpha()
         self.initOHLCVData()
         self.initOHLCVTmpData()
@@ -315,12 +322,23 @@ class DataAdapter(object):
             return
         row = self._data_[self._ii + 1]
         # </debug>
+        if self._benefit_timing == "worst":
+            ltp_max = max([row[0], row[-1]])
+            ltp_min = min([row[0], row[-1]])
+        elif self._benefit_timing == "mean":
+            ltp_max = int((row[0] + row[-1]) / 2)
+            ltp_min = int((row[0] + row[-1]) / 2)
+        elif self._benefit_timing == "open":
+            ltp_max = row[0]
+            ltp_min = row[0]
+        else:
+            raise ValueError
         if self._current_state == "ask": # order of "sell"
-            self._order_ltp = max([row[0], row[-1]])
+            self._order_ltp = ltp_max
             self._current_state = "sell"
             self._look_for_max = True
         elif self._current_state == "bid": # order of "buy"
-            self._order_ltp = min([row[0], row[-1]])
+            self._order_ltp = ltp_min
             self._current_state = "buy"
             self._look_for_max = False
         elif self._current_state == "con":
@@ -328,20 +346,20 @@ class DataAdapter(object):
             ## a dead cross point reaches before the first extreme maximum point
             if self._cross_signal[-1] == -1.:
                 # order of "sell"
-                ltp_ = min([row[0], row[-1]])
+                ltp_ = ltp_min
                 self._jpy_list[-1] += ltp_ - self._order_ltp
                 self._benefit_list[-1] += ltp_ - self._order_ltp
                 self._stop_by_cross = 0
 
                 # go to bid and order immediately
-                self._order_ltp = min([row[0], row[-1]])
+                self._order_ltp = ltp_min
                 self._current_state = "buy"
                 self._look_for_max = False
             
             ## the first extreme maximum point reaches before a dead cross point
             elif self._extreme_signal[-1] == 1.:
                 # order of "sell"
-                ltp_ = min([row[0], row[-1]])
+                ltp_ = ltp_min
                 self._jpy_list[-1] += ltp_ - self._order_ltp
                 self._benefit_list[-1] += ltp_ - self._order_ltp
                 self._order_ltp = 0
@@ -352,20 +370,20 @@ class DataAdapter(object):
             ## a golden cross point reaches before the first extreme minimum point
             elif self._cross_signal[-1] == 1.:
                 # order of "buy"
-                ltp_ = max([row[0], row[-1]])
+                ltp_ = ltp_max
                 self._jpy_list[-1] -= ltp_ - self._order_ltp
                 self._benefit_list[-1] -= ltp_ - self._order_ltp
                 self._stop_by_cross = 0
 
                 # go to ask and order immediately
-                self._order_ltp = max([row[0], row[-1]])    
+                self._order_ltp = ltp_max
                 self._current_state = "sell"
                 self._look_for_max = True
             
             ## the first extreme minimum point reaches before a golden cross point
             elif self._extreme_signal[-1] == -1.:
                 # order of "buy"
-                ltp_ = max([row[0], row[-1]])
+                ltp_ = ltp_max
                 self._jpy_list[-1] -= ltp_ - self._order_ltp
                 self._benefit_list[-1] -= ltp_ - self._order_ltp
                 self._order_ltp = 0
@@ -727,6 +745,14 @@ class DataAdapter(object):
         return self._jpy_list
     
     @property
+    def benefit_list(self):
+        return self._benefit_list
+    
+    @property
+    def dec(self):
+        return self._dec
+    
+    @property
     def current_state(self):
         return self._current_state
     
@@ -769,6 +795,17 @@ class DataAdapter(object):
     @property
     def stat_golden_list(self):
         return self._stat_golden_list
+    
+    @property
+    def benefit_timing(self):
+        return self._benefit_timing
+    
+    @benefit_timing.setter
+    def benefit_timing(self, v):
+        if v in ["worst", "mean", "open"]:
+            self._benefit_timing = v
+        else:
+            print("'{}'must be one of ['worst', 'mean', 'open']".format(v))
     
     def register(self):
         """register(self) -> None
