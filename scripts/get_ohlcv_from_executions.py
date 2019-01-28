@@ -247,9 +247,9 @@ if __name__ == "__main__":
     t_start = datetime.fromtimestamp(data_latest["time"].values[-1]) + timedelta(hours=9, minutes=1)
     t_end = datetime.fromtimestamp(data_latest["time"].values[-1]) + timedelta(days=1, hours=9)
 
-    id_start = 694426164 # 2019/01/01
-    t_start = datetime(2019, 1, 1, 0, 0, 0)
-    t_end = datetime(2019, 1, 26, 0, 0, 0)
+    # id_start = 694426164 # 2019/01/01
+    # t_start = datetime(2019, 1, 1, 0, 0, 0)
+    # t_end = datetime(2019, 1, 26, 0, 0, 0)
 
     print("start:", id_start, t_start, t_end)
     st = time.time()
