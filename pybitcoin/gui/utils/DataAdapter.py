@@ -79,6 +79,7 @@ class DataAdapter(object):
         self.N_ema_max = N_ema_max
         self._N_ema1 = N_ema1
         self._N_ema2 = N_ema2
+        self._N_macd = 14
         self._delta = delta # for judgement of extreme maxima / minima
         self.N_dec = N_dec
         self._th_dec = th_dec
@@ -153,6 +154,8 @@ class DataAdapter(object):
             self._close = []
             self._ema1 = []
             self._ema2 = []
+            self._macd = []
+            self._macd_signal = []
             self._cross_signal = []
             self._extreme_signal = []
             self._current_max = np.Inf
@@ -167,15 +170,16 @@ class DataAdapter(object):
         if self._data_frame is not None:
             self._ii = 0
             if isinstance(self._data_frame, pd.DataFrame):
-                self._data_ = self._data_frame[["open", "high", "low", "close"]].values
-                volume_ = self._data_frame["volume"].values
-                for ii, row in enumerate(self._data_):
-                    self._ii = ii
-                    # print(ii)
-                    buff = np.zeros(5)
-                    buff[0] = ii + 1
-                    buff[1:] = row.copy()
-                    if self._df_initialized or self._ema_update:
+                if self._df_initialized or self._ema_update or self._delta_update:
+                    self._data_ = self._data_frame[["open", "high", "low", "close"]].values
+                    volume_ = self._data_frame["volume"].values
+                    for ii, row in enumerate(self._data_):
+                        self._ii = ii
+                        # print(ii)
+                        buff = np.zeros(5)
+                        buff[0] = ii + 1
+                        buff[1:] = row.copy()
+                    
                         self._timestamp.append(ii + 1)
                         self._volume_list.append(volume_[ii])
                         self._ohlc_list.append(buff.copy())
@@ -184,12 +188,16 @@ class DataAdapter(object):
                         self._dec.append(self.calcDec())
                         self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
                         self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
+                        self._macd.append(self.calcMACD(self._ema1, self._ema2))
+                        self._macd_signal.append(self.calcMACDSignal(self._macd, self._alpha_macd))
                         self._cross_signal.append(self.judgeCrossPoint())
                         self._extreme_signal.append(self.judgeExtremePoint())
                         self.updateExecutionState()
                         self.orderProcess()
-                self._dec = np.array(self._dec, dtype=int)
-                # self._latest = 
+                    self._dec = np.array(self._dec, dtype=int)
+                    # self._latest = 
+                else:
+                    pass
             else:
                 raise TypeError('df must be a pandas.DataFrame object.')
         self._benefit_list = np.array(self._benefit_list)
@@ -221,12 +229,56 @@ class DataAdapter(object):
         
         Returns
         -------
-        current EMA value (float)
+        EMA : float
+            current EMA value
         """
         if len(ema_list) == 0:
             return self._close[0]
         else:
             return (1. - alpha) * ema_list[-1] + alpha * self._close[self._ii]
+    
+    def calcMACD(self, ema1, ema2):
+        """calcMACD(self, ema1, ema2) -> float
+
+        calculate the MACD value
+
+        Parameters
+        ----------
+        ema1 : array-like
+            the first EMA
+        ema2 : array-like
+            the second EMA
+        
+        Returns
+        -------
+        MACD : float
+            current MACD value
+        """
+        if len(ema1) == 0 or len(ema2) == 0:
+            return 0.
+        else:
+            return ema1[-1] - ema2[-1]
+    
+    def calcMACDSignal(self, MACD, alpha):
+        """calcMACDSignal(self, MACD, alpha) -> float
+
+        calculate the MACD signal
+
+        Parameters
+        ----------
+        MACD : array-like
+            list of historical EMA values
+        alpha    : float
+            alpha parameter of EMA calculation
+        
+        Returns
+        -------
+        current EMA value (float)
+        """
+        if len(self._macd_signal) == 0:
+            return self._macd[0]
+        else:
+            return (1. - alpha) * MACD[-1] + alpha * self._macd[self._ii]
     
     def judgeCrossPoint(self):
         """judgeCrossPoint(self) -> float
@@ -546,8 +598,9 @@ class DataAdapter(object):
 
         update the alpha parameters for calulation of EMA
         """
-        self._alpha1 = 2./(self._N_ema1 + 1.)
-        self._alpha2 = 2./(self._N_ema2 + 1.)
+        self._alpha1 = 2. / (self._N_ema1 + 1.)
+        self._alpha2 = 2. / (self._N_ema2 + 1.)
+        self._alpha_macd = 2. / (self._N_macd + 1.)
     
     def updateOHLCVData(self):
         """updateOHLCVData(self) -> None

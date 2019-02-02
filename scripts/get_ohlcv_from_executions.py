@@ -241,7 +241,7 @@ def get_ohlcv(ts, te, api, id_start=None, verbose=False):
 
 if __name__ == "__main__":
     api = initAPI()
-    file_latest = glob.glob("../data/ohlcv/OHLCV_*_to_*.csv")[-1]
+    file_latest = glob.glob("../pybitcoin/gui/data/ohlcv/OHLCV_*_to_*.csv")[-1]
     data_latest = pd.read_csv(file_latest, index_col=0)
     id_start = data_latest["id_end"].values[-1] + 1
     t_start = datetime.fromtimestamp(data_latest["time"].values[-1]) + timedelta(hours=9, minutes=1)
