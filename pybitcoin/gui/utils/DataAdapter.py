@@ -80,6 +80,11 @@ class DataAdapter(object):
         self._N_ema1 = N_ema1
         self._N_ema2 = N_ema2
         self._N_macd = 14
+        self._N_dm = 14
+        self._N_adx = 14
+        self._N_avg1 = 7
+        self._N_avg2 = 14
+        self._N_avg3 = 28
         self._delta = delta # for judgement of extreme maxima / minima
         self.N_dec = N_dec
         self._th_dec = th_dec
@@ -143,6 +148,7 @@ class DataAdapter(object):
                 "current_state", "order_ltp", "stop_by_cross", 
             ]
         if self._df_initialized or self._ema_update or self._delta_update:
+            # OHLCV
             self._ltp = []
             self._timestamp = []
             self._ohlc_list = []
@@ -150,19 +156,75 @@ class DataAdapter(object):
             self._dec = []
             self._latest_id = None
             self._volume_list = []
-            self._ema_update = True
             self._close = []
+
+            # technical indices
+            ## EMA
             self._ema1 = []
             self._ema2 = []
-            self._macd = []
-            self._macd_signal = []
             self._cross_signal = []
             self._extreme_signal = []
             self._current_max = np.Inf
             self._current_min = -np.Inf
             self._look_for_max = None
+            self._distance_ema1 = []
+            self._distance_ema2 = []
+
+            ## MACD
+            self._macd = []
+            self._macd_signal = []
+
+            ## ATR (volatility)
+            self._true_range = []
+            self._atr = []
+
+            ## DMI
+            self._dm_plus = []
+            self._dm_minus = []
+            self._dm_plus_ema = []
+            self._dm_minus_ema = []
+            self._di_plus = []
+            self._di_minus = []
+            self._dx = []
+            self._adx = []
+
+            ## Bollinger bands
+            self._std = []
+            self._upper_band1 = []
+            self._upper_band2 = []
+            self._upper_band3 = []
+            self._lower_band1 = []
+            self._lower_band2 = []
+            self._lower_band3 = []
+
+            ## Momentum
+            self._momentum = []
+
+            ## ROC
+            self._roc1 = []
+            self._roc2 = []
+
+            ## RSI
+            self._ema_oc_up = []
+            self._ema_oc_down = []
+            self._rsi = []
+
+            ## William's %R
+            self._w_percent_r = []
+
+            ## Ultimate oscillator
+            self._bp = []
+            self._tr = []
+            self._avg1 = []
+            self._avg2 = []
+            self._avg3 = []
+            self._ult = []
+
+            # results
             self._jpy_list = []
             self._benefit_list = []
+
+            # current status of order
             self._current_state = "wait"
             self._order_ltp = 0
             self._stop_by_cross = False
@@ -215,27 +277,53 @@ class DataAdapter(object):
         else:
             return int("".join([str(i_) for i_ in self._oc_up_down[-self.N_dec:]]), 2)
     
-    def calcEMA(self, ema_list, alpha):
-        """calcEMA(self, ema_list, alpha) -> float
+    # def calcEMA(self, ema_list, alpha):
+    #     """calcEMA(self, ema_list, alpha) -> float
 
-        calculate the EMA value for the latest close data
+    #     calculate the EMA value for the latest close data
+
+    #     Parameters
+    #     ----------
+    #     ema_list : array-like
+    #         list of historical EMA values
+    #     alpha    : float
+    #         alpha parameter of EMA calculation
+        
+    #     Returns
+    #     -------
+    #     EMA : float
+    #         current EMA value
+    #     """
+    #     if len(ema_list) == 0:
+    #         return self._close[0]
+    #     else:
+    #         return (1. - alpha) * ema_list[-1] + alpha * self._close[self._ii]
+    
+    def calcEMA(self, ema, base, alpha, ii=-1):
+        """calcEMA(self, ema, base, alpha, ii=-1) -> float
+
+        calculate the EMA value for the latest data in `base`
 
         Parameters
         ----------
-        ema_list : array-like
+        ema   : array-like
             list of historical EMA values
-        alpha    : float
+        base  : array-like
+            list of historical values
+        alpha : float
             alpha parameter of EMA calculation
+        ii    : int (default : -1)
+            index of the value in base used to calulate EMA
         
         Returns
         -------
         EMA : float
             current EMA value
         """
-        if len(ema_list) == 0:
-            return self._close[0]
+        if len(ema) == 0:
+            return base[0]
         else:
-            return (1. - alpha) * ema_list[-1] + alpha * self._close[self._ii]
+            return (1. - alpha) * ema[-1] + alpha * base[ii]
     
     def calcMACD(self, ema1, ema2):
         """calcMACD(self, ema1, ema2) -> float
@@ -259,27 +347,136 @@ class DataAdapter(object):
         else:
             return ema1[-1] - ema2[-1]
     
-    def calcMACDSignal(self, MACD, alpha):
-        """calcMACDSignal(self, MACD, alpha) -> float
+    def calcMACDSignal(self, signal, MACD, alpha, ii=-1):
+        """calcMACDSignal(self, signal, MACD, alpha, ii=-1) -> float
 
         calculate the MACD signal
 
         Parameters
         ----------
-        MACD : array-like
+        signal : array-like
+            list of MACD signal
+        MACD   : array-like
             list of historical EMA values
-        alpha    : float
+        alpha  : float
             alpha parameter of EMA calculation
+        ii     : int (default : -1)
+            index of the value in MACD used to calulate MACD signal
         
         Returns
         -------
-        current EMA value (float)
+        the current MACD signal (float)
         """
-        if len(self._macd_signal) == 0:
-            return self._macd[0]
-        else:
-            return (1. - alpha) * MACD[-1] + alpha * self._macd[self._ii]
+        return self.calcEMA(signal, MACD, alpha, ii)
     
+    def calcTR(self, ohlc):
+        """calcTR(self, ohlc) -> int
+
+        calculate the current true range
+
+        Returns
+        -------
+        TR : int
+            the current true range
+        """
+        if len(ohlc) < 2:
+            return 0
+        else:
+            return max([ohlc[-1][1] - ohlc[-1][2], ohlc[-1][1] - ohlc[-2][-1], ohlc[-2][-1] - ohlc[-1][2]])
+    
+    def calcATR(self, ATR, true_range, alpha, ii=-1):
+        """calcATR(self, ATR, true_range, alpha, ii=-1) -> float
+
+        calculate the current ATR value
+
+        Parameters
+        ----------
+        ATR        : array-like
+            list of ATR
+        true_range : array-like
+            list of true range
+        alpha      : float
+            alpha parameter for calculation of ATR
+        ii         : int (default : -1)
+            index
+
+        Returns
+        -------
+        ATR : float
+            the current ATR value
+        """
+        return self.calcEMA(ATR, true_range, alpha, ii)
+    
+    def calcDMPlus(self, ohlc):
+        """calcDMPlus(self, ohlc) -> int
+
+        calculate the current DM+ value
+
+        Returns
+        -------
+        DM+ : int
+            the urrent DM+ value
+        """
+        if len(ohlc) < 2:
+            return 0
+        else:
+            HM = ohlc[-1][1] - ohlc[-2][1]
+            LM = ohlc[-1][2] - ohlc[-2][2]
+            if HM > LM and HM > 0:
+                return HM
+            else:
+                return 0
+    
+    def calcDMMinus(self, ohlc):
+        """calcDMMinus(self, ohlc) -> int
+
+        calculate the current DM- value
+
+        Returns
+        -------
+        DM- : int
+            the urrent DM- value
+        """
+        if len(ohlc) < 2:
+            return 0
+        else:
+            HM = ohlc[-1][1] - ohlc[-2][1]
+            LM = ohlc[-1][2] - ohlc[-2][2]
+            if HM < LM and LM > 0:
+                return LM
+            else:
+                return 0
+    
+    def calcDMPlusEMA(self, DMPlusEMA, DMPlus, alpha, ii=-1):
+        """calcDMPlusEMA(self, DMPlusEMA, DMPlus, alpha, ii=-1) -> float
+        """
+        return self.calcEMA(DMPlusEMA, DMPlus, alpha, ii)
+    
+    def calcDMMiusEMA(self, DMMinusEMA, DMMinus, alpha, ii=-1):
+        """calcDMMiusEMA(self, DMMinusEMA, DMMinus, alpha, ii=-1) -> float
+        """
+        return self.calcEMA(DMMinusEMA, DMMinus, alpha, ii)
+
+    def calcDIPlus(self, DMPlusEMA, ATR, alpha):
+        """calcDIPlus(self, DMPlusEMA, ATR, alpha) -> float
+        """
+        return DMPlusEMA[-1] / ATR[-1] * 100.
+    
+    def calcDIMinus(self, DMMinusEMA, ATR, alpha):
+        """calcDIMinus(self, DMMinusEMA, ATR, alpha) -> float
+        """
+        return DMMinusEMA[-1] / ATR[-1] * 100.
+    
+    def calcDX(self, DIPlus, DIMinus):
+        """calcDX(self. DIPlus, DIMinus) > float
+        """
+        return np.abs(DIPlus[-1] - DIMinus[-1]) / (DIPlus[-1] + DIMinus[-1]) * 100.
+    
+    def calcADX(self, ADX, DX, alpha, ii=-1):
+        """calcADX(self, ADX, DX, alpha, ii=-1) -> float
+        """
+        return self.calcEMA(ADX, DX, alpha, ii)
+        
     def judgeCrossPoint(self):
         """judgeCrossPoint(self) -> float
 
