@@ -247,14 +247,50 @@ class TemporalAnalyzer(object):
         """
         return self.calcEMA(ADX, DX, alpha, ii)
     
-    def calcStd(self, tohlc):
-        return 0.
-    
-    def calcRMS(self, tohlc):
-        return 0.
+    def calcRMSError(self, close, base, n=1):
+        """calcRMSError(self, close, base, n=1) -> float
 
-    def calcBollingerBands(self, tohlc):
-        return 0., 0., 0., 0., 0., 0.
+        calculate the current rms of error between `close` and `base`.
+
+        Parameters
+        ----------
+        close : array-like
+            list of close values
+        base  : array-like
+            list of base values (e.g. SMA, EMA)
+        n     : int (default : 1)
+            the number of days to consider
+        
+        Returns
+        -------
+        the current rms of error (float)
+        """
+        if len(base) < n:
+            return np.std(np.array(close) - np.array(base))
+        else:
+            return np.std(np.array(close[-n:]) - np.array(base[-n:]))
+
+    def calcBollingerBands(self, close, base, n=1):
+        """calcBollingerBands(self, close, base, n=1) -> 7 floats
+
+        calculate the current values for Bollinger bands
+
+        Parameters
+        ----------
+        close : array-like
+            list of close values
+        base  : array-like
+            list of base values (e.g. SMA, EMA)
+        n     : int (default : 1)
+            the number of days to consider
+        
+        Returns
+        -------
+        the current values for Bollinger bands (7 floats)
+        """
+        sigma = self.calcRMSError(close, base, n)
+        return close[-1] - 3. * sigma, close[-1] - 2. * sigma, close[-1] - sigma, close[-1], \
+               close[-1] + sigma, close[-1] + 2. * sigma, close[-1] + 3. * sigma
     
     def calcMomentum(self, tohlc, n=1):
         """calcMomentum(self, tohlc, n=1) -> float
