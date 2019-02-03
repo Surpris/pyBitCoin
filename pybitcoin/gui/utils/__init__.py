@@ -1,7 +1,7 @@
 #! /usr/bin/python3
 # -*- coding: utf-8 -*
 
-from .Analyzer import Analyzer
+from .Analyzer import TemporalAnalyzer
 from .DataAdapter import DataAdapter
 from .decorators import dynamic_decorator
 from .footprint import footprint
