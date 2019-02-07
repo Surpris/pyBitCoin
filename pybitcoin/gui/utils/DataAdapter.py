@@ -18,11 +18,13 @@ import sys
 import pybitflyer
 
 try:
+    from .Analyzer import TemporalAnalyzer
     from .footprint import footprint
     from .init_api import init_api
     from .mathfunctions import symbolize, dataset_for_boxplot
 except ImportError:
     sys.path.append("../utils/")
+    from Analyzer import TemporalAnalyzer
     from footprint import footprint
     from init_api import init_api
     from mathfunctions import symbolize, dataset_for_boxplot
@@ -125,6 +127,9 @@ class DataAdapter(object):
         self.initOHLCVData()
         self.initOHLCVTmpData()
         # self.updateOHLCVRealTime(None)
+
+        # Analyzer
+        self.analyzer = TemporalAnalyzer()
 
         if self._analysis_results is not None:
             self._ana_set = True
@@ -248,10 +253,10 @@ class DataAdapter(object):
                         self._close.append(row[-1])
                         self._oc_up_down.append(int(row[-1] > row[0]))
                         self._dec.append(self.calcDec())
-                        self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
-                        self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
+                        # self._ema1.append(self.calcEMA(self._ema1, self._alpha1))
+                        # self._ema2.append(self.calcEMA(self._ema2, self._alpha2))
                         self._macd.append(self.calcMACD(self._ema1, self._ema2))
-                        self._macd_signal.append(self.calcMACDSignal(self._macd, self._alpha_macd))
+                        # self._macd_signal.append(self.calcMACDSignal(self._macd, self._alpha_macd))
                         self._cross_signal.append(self.judgeCrossPoint())
                         self._extreme_signal.append(self.judgeExtremePoint())
                         self.updateExecutionState()

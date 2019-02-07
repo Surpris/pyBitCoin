@@ -1,8 +1,7 @@
 #-*- coding: utf-8 -*-
 
 import numpy as np
-import pandas as pd
-# from .mathfunctions import calc_EMA, find_cross_points, peakdet, symbolize
+# import pandas as pd
 
 class TemporalAnalyzer(object):
     """TemporalAnalyzer(object)
@@ -56,7 +55,31 @@ class TemporalAnalyzer(object):
             return 0
         else:
             return int("".join([str(i_) for i_ in oc_up_down[-N_dec:]]), 2)
-    
+
+    def calcSMA(self, base, N, ii=-1):
+        """calcSMA(self, base, alpha, ii=-1) -> float
+
+        calculate the SMA value for the value in `base` (identified by `ii`)
+        TODO: support the use of `ii`
+
+        Parameters
+        ----------
+        base  : array-like
+            list of historical values
+        N : float
+            the number of points to calculate SMA with
+        ii    : int (default : -1)
+            index of the value in base used to calulate SMA
+        
+        Returns
+        -------
+        the current SMA value (float)
+        """
+        if len(base) < N:
+            return  np.mean(base)
+        else:
+            return np.mean(base[-N:])
+
     def calcEMA(self, ema, base, alpha, ii=-1):
         """calcEMA(self, ema, base, alpha, ii=-1) -> float
 
@@ -126,6 +149,27 @@ class TemporalAnalyzer(object):
         """
         return self.calcEMA(signal, MACD, alpha, ii)
     
+    def calcBuyingPressure(self, tohlc):
+        """calcBuyingPressure(self, tohlc) -> int
+
+        calculate the current buying pressure
+
+        Parameters
+        ----------
+        tohlc : array-like
+            list of (timestamp, open, high, low, close)
+
+        Returns
+        -------
+        the current buynig pressure (float)
+        """
+        if len(tohlc) == 0:
+            return 0
+        elif len(tohlc) == 1:
+            return tohlc[-1][-1] - tohlc[-1][3]
+        else:
+            return tohlc[-1][-1] - min(tohlc[-1][3], tohlc[-2][-1])
+        
     def calcTrueRange(self, tohlc):
         """calcTrueRange(self, tohlc) -> int
 
@@ -470,31 +514,10 @@ class TemporalAnalyzer(object):
         """
         return (target[ii] - base[ii]) / base[ii] * 100.
     
-    def calcBuyingPressure(self, tohlc):
-        """calcBuyingPressure(self, tohlc) -> int
-
-        calculate the current buying pressure
-
-        Parameters
-        ----------
-        tohlc : array-like
-            list of (timestamp, open, high, low, close)
-
-        Returns
-        -------
-        the current buynig pressure (float)
-        """
-        if len(tohlc) == 0:
-            return 0
-        elif len(tohlc) == 1:
-            return tohlc[-1][-1] - tohlc[-1][3]
-        else:
-            return tohlc[-1][-1] - min(tohlc[-1][3], tohlc[-2][-1])
-    
     def calcUltimateOscillator(self, buying_pressure, true_range, N1=7, N2=14, N3=28):
         """calcUltimateOscillator(self, buying_pressure, true_range, N1=7, N2=14, N3=28) -> float
 
-        calculate the current ultimate oscillator
+        calculate the current ultimate oscillator (UO)
 
         Parameters
         ----------
@@ -511,7 +534,7 @@ class TemporalAnalyzer(object):
         
         Returns
         -------
-        the current ultimate oscillator (float)
+        the current UO (float)
         """
         if len(buying_pressure) < N1 or len(true_range) < N1:
             avg1 = 0.5
@@ -529,6 +552,36 @@ class TemporalAnalyzer(object):
             avg3 = np.sum(buying_pressure[-N3:]) / np.sum(true_range[-N3:])
         
         return (N1 * avg1 + N2 * avg2 + N3 * avg3) / (N1 + N2 + N3) * 100.
+    
+    def calcAwesomeOscillator(self, tohlc, N1=5, N2=34):
+        """calcAwesomeOscillator(self, tohlc, N1=5, N2=34) -> float
+
+        calculate the current awesome oscillator (AO)
+
+        Parameters
+        ----------
+        tohlc : array-like
+            list of (timestamp, open, high, low, close)
+        N1    : int (default : 5)
+            the first period
+        N2    : int (default : 34)
+            the second period
+        
+        Returns
+        -------
+        the current AO (float)
+        """
+        if len(tohlc) < N1:
+            base1 = [(row[2] + row[3]) / 2. for row in tohlc]
+        else:
+            base1 = [(row[2] + row[3]) / 2. for row in tohlc[-N1:]]
+
+        if len(tohlc) < N2:
+            base2 = [(row[2] + row[3]) / 2. for row in tohlc]
+        else:
+            base2 = [(row[2] + row[3]) / 2. for row in tohlc[-N2:]]
+        
+        return self.calcSMA(base1, N1) - self.calcSMA(base2, N2)
 
 def main():
     for line in TemporalAnalyzer.__doc__.split("\n"):
