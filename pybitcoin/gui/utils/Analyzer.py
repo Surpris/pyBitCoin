@@ -250,7 +250,7 @@ class TemporalAnalyzer(object):
             return 0
         else:
             HM = tohlc[-1][2] - tohlc[-2][2]
-            LM = tohlc[-1][3] - tohlc[-2][3]
+            LM = tohlc[-2][3] - tohlc[-1][3]
             if HM > LM and HM > 0:
                 return HM
             else:
@@ -274,7 +274,7 @@ class TemporalAnalyzer(object):
             return 0
         else:
             HM = tohlc[-1][2] - tohlc[-2][2]
-            LM = tohlc[-1][3] - tohlc[-2][3]
+            LM = tohlc[-2][3] - tohlc[-1][3]
             if HM < LM and LM > 0:
                 return LM
             else:
@@ -285,8 +285,8 @@ class TemporalAnalyzer(object):
         """
         return self.calcEMA(DMPlusEMA, DMPlus, alpha, ii)
     
-    def calcDMMiusEMA(self, DMMinusEMA, DMMinus, alpha, ii=-1):
-        """calcDMMiusEMA(self, DMMinusEMA, DMMinus, alpha, ii=-1) -> float
+    def calcDMMinusEMA(self, DMMinusEMA, DMMinus, alpha, ii=-1):
+        """calcDMMinusEMA(self, DMMinusEMA, DMMinus, alpha, ii=-1) -> float
         """
         return self.calcEMA(DMMinusEMA, DMMinus, alpha, ii)
 
@@ -300,10 +300,13 @@ class TemporalAnalyzer(object):
         """
         return DMMinusEMA[-1] / ATR[-1] * 100.
     
-    def calcDX(self, DIPlus, DIMinus):
-        """calcDX(self. DIPlus, DIMinus) > float
+    def calcDX(self, DIPlus, DIMinus, threshold=30.):
+        """calcDX(self. DIPlus, DIMinus, threshold=30.) > float
         """
-        return np.abs(DIPlus[-1] - DIMinus[-1]) / (DIPlus[-1] + DIMinus[-1]) * 100.
+        if DIPlus[-1] + DIMinus[-1] == 0.:
+            return threshold
+        else:
+            return np.abs(DIPlus[-1] - DIMinus[-1]) / (DIPlus[-1] + DIMinus[-1]) * 100.
     
     def calcADX(self, ADX, DX, alpha, ii=-1):
         """calcADX(self, ADX, DX, alpha, ii=-1) -> float
@@ -871,7 +874,7 @@ class Analyzer(object):
                 dmp.append(0)
             else:
                 HM = tohlc[ii][2] - tohlc[ii-1][2]
-                LM = tohlc[ii][3] - tohlc[ii-1][3]
+                LM = tohlc[ii-1][3] - tohlc[ii][3]
                 if HM > LM and HM > 0:
                     dmp.append(HM)
                 else:
@@ -900,7 +903,7 @@ class Analyzer(object):
                 dmm.append(0)
             else:
                 HM = tohlc[ii][2] - tohlc[ii-1][2]
-                LM = tohlc[ii][3] - tohlc[ii-1][3]
+                LM = tohlc[ii-1][3] - tohlc[ii][3]
                 if HM < LM and LM > 0:
                     dmm.append(LM)
                 else:
@@ -913,25 +916,32 @@ class Analyzer(object):
         """
         return self.calcEMA(DMPlus, alpha)
     
-    def calcDMMiusEMA(self, DMMinus, alpha):
-        """calcDMMiusEMA(self, DMMinus, alpha) -> list
+    def calcDMMinusEMA(self, DMMinus, alpha):
+        """calcDMMinusEMA(self, DMMinus, alpha) -> list
         """
         return self.calcEMA(DMMinus, alpha)
 
     def calcDIPlus(self, DMPlusEMA, ATR):
         """calcDIPlus(self, DMPlusEMA, ATR) -> list
         """
-        return DMPlusEMA[-1] / ATR[-1] * 100.
+        return [dmp / atr * 100. for dmp, atr in zip(DMPlusEMA, ATR)]
     
-    def calcDIMinus(self, DMMinusEMA, ATR, alpha):
-        """calcDIMinus(self, DMMinusEMA, ATR, alpha) -> list
+    def calcDIMinus(self, DMMinusEMA, ATR):
+        """calcDIMinus(self, DMMinusEMA, ATR) -> list
         """
-        return DMMinusEMA[-1] / ATR[-1] * 100.
+        return [dmm / atr * 100. for dmm, atr in zip(DMMinusEMA, ATR)]
     
-    def calcDX(self, DIPlus, DIMinus):
-        """calcDX(self. DIPlus, DIMinus) > list
+    def calcDX(self, DIPlus, DIMinus, threshold=30.):
+        """calcDX(self. DIPlus, DIMinus, threshold=30.) > list
         """
-        return [(dip - dim) / (dip + dim) * 100. for dip, dim in zip(DIPlus, DIMinus)]
+        dx = []
+        for ii in range(len(DIPlus)):
+            if DIPlus[ii] + DIMinus[ii] == 0.:
+                dx.append(threshold)
+            else:
+                dx.append(np.abs(DIPlus[ii] - DIMinus[ii]) / (DIPlus[ii] + DIMinus[ii]) * 100.)
+        
+        return dx
     
     def calcADX(self, DX, alpha):
         """calcADX(self, ADX, DX, alpha, ii=-1) -> list
