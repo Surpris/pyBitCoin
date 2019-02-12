@@ -441,8 +441,8 @@ class TemporalAnalyzer(object):
         -------
         EMA value for OC-down patterns (float)
         """
-        if tohlc[ii][2] > tohlc[ii][-1]:
-                w = tohlc[ii][2] - tohlc[ii][-1]
+        if tohlc[ii][1] > tohlc[ii][-1]:
+            w = tohlc[ii][1] - tohlc[ii][-1]
         else:
             w = 0.
         if len(ema) == 0:
@@ -470,8 +470,8 @@ class TemporalAnalyzer(object):
         -------
         EMA value for OC-up patterns (float)
         """
-        if tohlc[ii][2] < tohlc[ii][-1]:
-                w = tohlc[ii][-1] - tohlc[ii][2]
+        if tohlc[ii][1] < tohlc[ii][-1]:
+            w = tohlc[ii][-1] - tohlc[ii][1]
         else:
             w = 0.
         if len(ema) == 0:
@@ -499,8 +499,8 @@ class TemporalAnalyzer(object):
         """
         return oc_up_ema[ii] / (oc_down_ema[ii] + oc_up_ema[ii]) * 100.
     
-    def calcWPrecentR(self, tohlc, n=1):
-        """calcWPrecentR(self, tohlc, n=1) -> float
+    def calcWPercentR(self, tohlc, n=1):
+        """calcWPercentR(self, tohlc, n=1) -> float
 
         calculate the current William's %R.
 
@@ -525,14 +525,14 @@ class TemporalAnalyzer(object):
     def calcRatioOfDeviation(self, target, base, ii=-1):
         """calcRatioOfDeviation(self, target, base, ii=-1) -> float
 
-        calculate the ration of deviation of `target` from `base`
+        calculate the ratio of deviation of `target` from `base`
 
         Parameters
         ----------
         target : array-like
             list of target values
         base  : array-like
-            list of base values (e.g. SMA, EMA)
+            list of base values (e.g. close)
 
         Returns
         -------
@@ -1108,8 +1108,8 @@ class Analyzer(object):
         """
         oc_down_ema = []
         for ii in range(len(tohlc)):
-            if tohlc[ii][2] > tohlc[ii][-1]:
-                w = tohlc[ii][2] - tohlc[ii][-1]
+            if tohlc[ii][1] > tohlc[ii][-1]:
+                w = tohlc[ii][1] - tohlc[ii][-1]
             else:
                 w = 0.
             if ii == 0:
@@ -1138,8 +1138,8 @@ class Analyzer(object):
         """
         oc_up_ema = []
         for ii in range(len(tohlc)):
-            if tohlc[ii][2] < tohlc[ii][-1]:
-                w = tohlc[ii][-1] - tohlc[ii][2]
+            if tohlc[ii][1] < tohlc[ii][-1]:
+                w = tohlc[ii][-1] - tohlc[ii][1]
             else:
                 w = 0.
             if ii == 0:
@@ -1167,8 +1167,8 @@ class Analyzer(object):
         """
         return [u / (u + d) * 100. for u, d in zip(oc_up_ema, oc_down_ema)]
     
-    def calcWPrecentR(self, tohlc, N=1):
-        """calcWPrecentR(self, tohlc, N=1) -> list
+    def calcWPercentR(self, tohlc, N=1):
+        """calcWPercentR(self, tohlc, N=1) -> list
 
         calculate the current William's %R.
 
@@ -1198,14 +1198,14 @@ class Analyzer(object):
     def calcRatioOfDeviation(self, target, base, ii=-1):
         """calcRatioOfDeviation(self, target, base, ii=-1) -> float
 
-        calculate the ration of deviation of `target` from `base`
+        calculate the ratio of deviation of `target` from `base`
 
         Parameters
         ----------
         target : array-like
             list of target values
         base  : array-like
-            list of base values (e.g. SMA, EMA)
+            list of base values (e.g. close)
 
         Returns
         -------
@@ -1273,7 +1273,9 @@ class Analyzer(object):
         list of AO
         """
         base = [(row[2] + row[3]) / 2. for row in tohlc]
-        return self.calcSMA(base, N1) - self.calcSMA(base, N2)
+        first = self.calcSMA(base, N1)
+        second = self.calcSMA(base, N2)
+        return [f - s for f, s in zip(first, second)]
 
 def main():
     for line in TemporalAnalyzer.__doc__.split("\n"):
