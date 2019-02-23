@@ -6,7 +6,7 @@ import numpy as np
 class TemporalAnalyzer(object):
     """TemporalAnalyzer(object)
     
-    This class offers functions to calculate existent technical indices at the latest time.
+    This class offers functions to calculate existent technical indicators at the latest time.
     In coming future, this offers `my functions`.
 
     Examples
@@ -612,7 +612,7 @@ class TemporalAnalyzer(object):
 class Analyzer(object):
     """Analyzer(object)
     
-    This class offers functions to calculate existent technical indices.
+    This class offers functions to calculate existent technical indicators.
     In coming future, this offers `my functions`.
 
     Examples
