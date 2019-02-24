@@ -24,7 +24,7 @@ try:
     from .mathfunctions import symbolize, dataset_for_boxplot
 except ImportError:
     sys.path.append("../utils/")
-    from Analyzer import TemporalAnalyzer
+    from Analyzer import TemporalAnalyzer, Analyzer
     from footprint import footprint
     from init_api import init_api
     from mathfunctions import symbolize, dataset_for_boxplot
@@ -34,8 +34,7 @@ class DataAdapter(object):
 
     This class offers an adapter of OHLCV and related data used in pybitcoin.
     """
-    def __init__(self, df=None, analysis_results=None, 
-                 N_ema_min=1, N_ema_max=30, N_ema1=20, N_ema2=21, 
+    def __init__(self, df=None, analysis_results=None, N_ema1=20, N_ema2=21, 
                  delta=10., N_dec=5, th_dec=0., **kwargs):
         """__init__(self, df=None, analysis_results=None, 
                     N_ema_min=10, N_ema_max=30, N_ema1=20, N_ema2=21, 
@@ -73,6 +72,10 @@ class DataAdapter(object):
             size            : float (default : 1.0)
                 size of BTC to order
         """
+        # initialize analyzers
+        self._analyzer = Analyzer()
+        self._tmp_analyzer = TemporalAnalyzer()
+
         self._data_frame = df
         self._analysis_results = analysis_results
 
@@ -179,7 +182,8 @@ class DataAdapter(object):
             self._macd = []
             self._macd_signal = []
 
-            ## ATR (volatility)
+            ## Buying Pressure, True range, ATR (volatility)
+            self._buying_pressure = []
             self._true_range = []
             self._atr = []
 
@@ -202,14 +206,12 @@ class DataAdapter(object):
             self._lower_band2 = []
             self._lower_band3 = []
 
-            ## Momentum
+            ## Momentum, Rate Of Change (ROC)
             self._momentum = []
-
-            ## ROC
             self._roc1 = []
             self._roc2 = []
 
-            ## RSI
+            ## Relative Strength Index (RSI)
             self._ema_oc_up = []
             self._ema_oc_down = []
             self._rsi = []
@@ -218,12 +220,7 @@ class DataAdapter(object):
             self._w_percent_r = []
 
             ## Ultimate oscillator
-            self._bp = []
-            self._tr = []
-            self._avg1 = []
-            self._avg2 = []
-            self._avg3 = []
-            self._ult = []
+            self._uo = []
 
             # results
             self._jpy_list = []

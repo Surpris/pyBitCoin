@@ -154,9 +154,9 @@ class OrderBoard(QMainWindow):
         initialize the API of pybitflyer
         """
         if os.name == "nt":
-            fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], self._api_dir, "*"))[0]
+            fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], self._api_dir, "*.bitflyer"))[0]
         else:
-            fpath = glob.glob(os.path.join(os.environ["HOME"], self._api_dir, "*"))[0]
+            fpath = glob.glob(os.path.join(os.environ["HOME"], self._api_dir, "*.bitflyer"))[0]
 
         # raise the exception unless both an API key and an API secret key are not loaded.
         with open(fpath, "r", encoding="utf-8") as ff:

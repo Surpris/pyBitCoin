@@ -16,9 +16,9 @@ def initAPI():
     """
     _api_timeout = 2.0
     if os.name == "nt":
-        fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], ".prv", "*"))[0]
+        fpath = glob.glob(os.path.join(os.environ["USERPROFILE"], ".prv", "*.bitflyer"))[0]
     else:
-        fpath = glob.glob(os.path.join(os.environ["HOME"], ".prv", "*"))[0]
+        fpath = glob.glob(os.path.join(os.environ["HOME"], ".prv", "*.bitflyer"))[0]
 
     # raise the exception unless both an API key and an API secret key are not loaded.
     with open(fpath, "r", encoding="utf-8") as ff:
